@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import User from "../models/User.js";
+import User from "../models/userModel";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -53,6 +53,7 @@ export const login = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 export const getProfile = async (req: Request, res: Response) => {
   try {
     const userId = req.user.id;

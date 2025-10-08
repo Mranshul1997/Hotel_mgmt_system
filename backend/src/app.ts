@@ -1,8 +1,11 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import connectDB from './config/db.js'; // note .js extension here
-import authRoutes from './routes/auth.js';
+import connectDB from './config/db'; // note .js extension here
+import authRoutes from './routes/auth';
+import userRoutes from './routes/userRoutes';
 import cors from 'cors';
+import shiftRoutes from './routes/shiftRoutes';
+import reportRoutes from './routes/manageReportsRoutes';
 
 dotenv.config();
 
@@ -14,6 +17,9 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/shifts', shiftRoutes);
+app.use('/api/reports', reportRoutes);
 
 const PORT = process.env.PORT || 5000;
 

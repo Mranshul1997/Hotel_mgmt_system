@@ -1,12 +1,12 @@
 import express from "express";
-import { verifyToken, authorizeRoles } from "../middleware/auth.js";
+import { verifyToken, authorizeRoles } from "../middleware/auth";
 import {
   signup,
   login,
   getProfile,
   someAdminOnlyHandler,
   updateProfile,
-} from "../controllers/authController.js";
+} from "../controllers/authController";
 
 const router = express.Router();
 

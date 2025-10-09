@@ -1,60 +1,60 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import {
+  createEmployee,
+  listEmployees,
+  updateEmployee,
+  deleteEmployee,
+} from "../api/employeeApi";
 import EmployeeReport from "./EmployeeReport";
 
-const initialEmployees = [
-  {
-    id: "EMP001",
-    name: "Amit Sharma",
-    email: "amit@hotel.com",
-    role: "Waiter",
-    shift: "Morning",
-    biometric: "Registered",
-    attendance: "98%",
-    salary: 15000,
-  },
-  {
-    id: "EMP002",
-    name: "Priya Singh",
-    email: "priya@hotel.com",
-    role: "Receptionist",
-    shift: "Afternoon",
-    biometric: "Pending",
-    attendance: "89%",
-    salary: 25000,
-  },
-  {
-    id: "EMP003",
-    name: "Rakesh Jain",
-    email: "rakesh@hotel.com",
-    role: "Cook",
-    shift: "Evening",
-    biometric: "Registered",
-    attendance: "95%",
-    salary: 30000,
-  },
+const roles = [
+  "M.D. SIR",
+  "MANEGER",
+  "FRONT OFFICE",
+  "CHEFF",
+  "MAINTENANCE",
+  "ROOM SERVICE",
+  "HOUSE KEEPING",
 ];
-
-const roles = ["Waiter", "Cook", "Receptionist", "Housekeeping", "Manager"];
 const shifts = ["Morning", "Afternoon", "Evening", "Night"];
 
 const emptyForm = {
   name: "",
   email: "",
+  age: "",
   role: roles[0],
   shift: shifts[0],
   biometric: "Pending",
   attendance: "100%",
+  salary: "",
 };
 
 const AdminEmployees = () => {
-  const [employees, setEmployees] = useState(initialEmployees);
+  const [employees, setEmployees] = useState([]);
+  console.log(employees, "<>?<>?<>?<>?");
   const [showModal, setShowModal] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [showReport, setShowReport] = useState(false);
-
-  // Add/Edit modal state
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState<any>(emptyForm);
   const [isEdit, setIsEdit] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Fetch employees
+  const fetchEmployees = async () => {
+    setLoading(true);
+    try {
+      const data = await listEmployees();
+      setEmployees(data);
+    } catch {
+      setEmployees([]);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
 
   // Open Add modal
   const handleShowAdd = () => {
@@ -64,15 +64,17 @@ const AdminEmployees = () => {
   };
 
   // Open Edit modal
-  const handleShowEdit = (emp) => {
+  const handleShowEdit = (emp: any) => {
     setForm({
       name: emp.name,
       email: emp.email,
+      age: emp.age,
       role: emp.role,
       shift: emp.shift,
       biometric: emp.biometric,
       attendance: emp.attendance,
       salary: emp.salary,
+      _id: emp._id,
     });
     setSelectedEmployee(emp);
     setIsEdit(true);
@@ -80,38 +82,64 @@ const AdminEmployees = () => {
   };
 
   // Handle input in modal form
-  const handleChange = (e) => {
+  const handleChange = (e: any) => {
     setForm({
       ...form,
       [e.target.name]: e.target.value,
     });
   };
 
-  // Add new employee
-  const handleAddEmployee = (e) => {
+  // Add new employee - API integration
+  const handleAddEmployee = async (e) => {
     e.preventDefault();
-    const newId = "EMP" + (employees.length + 1).toString().padStart(3, "0");
-    setEmployees([...employees, { ...form, id: newId }]);
-    setShowModal(false);
-    setForm(emptyForm);
+    setError("");
+    try {
+      await createEmployee({
+        ...form,
+        salary: Number(form.salary),
+        biometric: form.biometric,
+        attendance: form.attendance,
+        shift: form.shift,
+      });
+      setShowModal(false);
+      setForm(emptyForm);
+      fetchEmployees();
+    } catch (err) {
+      setError("Error creating employee");
+    }
   };
 
-  // Edit/save employee
-  const handleEditEmployee = (e) => {
+  const handleEditEmployee = async (e) => {
     e.preventDefault();
-    setEmployees(
-      employees.map((emp) =>
-        emp.id === selectedEmployee.id ? { ...emp, ...form } : emp
-      )
-    );
-    setShowModal(false);
-    setForm(emptyForm);
-    setIsEdit(false);
-    setSelectedEmployee(null);
+    setError("");
+    try {
+      await updateEmployee(selectedEmployee._id, {
+        ...form,
+        salary: Number(form.salary),
+      });
+      setShowModal(false);
+      setForm(emptyForm);
+      setIsEdit(false);
+      setSelectedEmployee(null);
+      fetchEmployees();
+    } catch (err) {
+      setError("Error updating employee");
+    }
+  };
+
+  // Delete employee - API integration
+  const handleDeleteEmployee = async (emp: any) => {
+    if (!window.confirm(`Delete employee ${emp.name}?`)) return;
+    try {
+      await deleteEmployee(emp._id);
+      fetchEmployees();
+    } catch (error) {
+      alert("Error deleting employee");
+    }
   };
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Manage Employees</h2>
         <button
@@ -138,15 +166,15 @@ const AdminEmployees = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
-            {employees.map((emp) => (
-              <tr key={emp.id} className="hover:bg-gray-800/30">
-                <td className="p-3 font-mono">{emp.id}</td>
+            {employees.map((emp: any) => (
+              <tr key={emp._id} className="hover:bg-gray-800/30">
+                <td className="p-3 font-mono">{emp.empId || emp._id}</td>
                 <td className="p-3">{emp.name}</td>
                 <td className="p-3">{emp.email}</td>
                 <td className="p-3">{emp.role}</td>
-                <td className="p-3">{emp.shift}</td>
+                <td className="p-3">{emp.shift?.name || emp.shift}</td>
                 <td className="p-3">{emp.biometric}</td>
-                <td className="p-3">{emp.salary || "-"}</td>
+                <td className="p-3">{emp.salary}</td>
                 <td className="p-3">{emp.attendance}</td>
                 <td className="p-3">
                   <button
@@ -159,19 +187,28 @@ const AdminEmployees = () => {
                     View Report
                   </button>
                 </td>
-                <td className="p-3">
+                <td className="p-3 flex gap-2">
                   <button
                     className="text-xs text-blue-400 underline"
                     onClick={() => handleShowEdit(emp)}
                   >
                     Edit
                   </button>
+                  <button
+                    className="text-xs text-red-400 underline"
+                    onClick={() => handleDeleteEmployee(emp)}
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {employees.length === 0 && (
+        {loading && (
+          <div className="text-center py-6 text-gray-400">Loading...</div>
+        )}
+        {!loading && employees.length === 0 && (
           <div className="text-center py-6 text-gray-400">
             No employees yet.
           </div>
@@ -185,6 +222,7 @@ const AdminEmployees = () => {
         )}
       </div>
 
+      {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
           <div className="bg-gray-900 p-8 rounded-xl shadow-lg max-w-md w-full border border-primary/30">
@@ -206,6 +244,7 @@ const AdminEmployees = () => {
                   required
                   value={form.name}
                   onChange={handleChange}
+                  disabled={loading}
                 />
               </div>
               <div>
@@ -219,8 +258,23 @@ const AdminEmployees = () => {
                   required
                   value={form.email}
                   onChange={handleChange}
+                  disabled={loading}
                 />
               </div>
+              <div>
+                <label className="block text-sm text-gray-200 mb-2">Age</label>
+                <input
+                  className="w-full p-2 rounded bg-input border-border text-white"
+                  type="number"
+                  name="age"
+                  min="18"
+                  required
+                  value={form.age}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+
               <div>
                 <label className="block text-sm text-gray-200 mb-2">Role</label>
                 <select
@@ -228,6 +282,7 @@ const AdminEmployees = () => {
                   name="role"
                   value={form.role}
                   onChange={handleChange}
+                  disabled={loading}
                 >
                   {roles.map((role, idx) => (
                     <option key={idx} value={role}>
@@ -245,6 +300,7 @@ const AdminEmployees = () => {
                   name="shift"
                   value={form.shift}
                   onChange={handleChange}
+                  disabled={loading}
                 >
                   {shifts.map((shift, idx) => (
                     <option key={idx} value={shift}>
@@ -253,6 +309,35 @@ const AdminEmployees = () => {
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="block text-sm text-gray-200 mb-2">
+                  Biometric
+                </label>
+                <select
+                  className="w-full p-2 rounded bg-input border-border text-white"
+                  name="biometric"
+                  value={form.biometric}
+                  onChange={handleChange}
+                  disabled={loading}
+                >
+                  <option value="Registered">Registered</option>
+                  <option value="Pending">Pending</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-200 mb-2">
+                  Attendance (%)
+                </label>
+                <input
+                  className="w-full p-2 rounded bg-input border-border text-white"
+                  type="text"
+                  name="attendance"
+                  value={form.attendance}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+
               <div>
                 <label className="block text-sm text-gray-200 mb-2">
                   Salary (₹ per month)
@@ -265,9 +350,12 @@ const AdminEmployees = () => {
                   required
                   value={form.salary}
                   onChange={handleChange}
+                  disabled={loading}
                 />
               </div>
-
+              {error && (
+                <div className="text-sm text-red-400 mb-2">{error}</div>
+              )}
               <div className="flex justify-end gap-2 mt-6">
                 <button
                   type="button"
@@ -277,15 +365,26 @@ const AdminEmployees = () => {
                     setIsEdit(false);
                     setForm(emptyForm);
                     setSelectedEmployee(null);
+                    setError("");
                   }}
+                  disabled={loading}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-primary text-white font-bold rounded"
+                  disabled={
+                    loading || !form.name || !form.email || !form.salary
+                  }
                 >
-                  {isEdit ? "Save Changes" : "Add Employee"}
+                  {loading
+                    ? isEdit
+                      ? "Saving..."
+                      : "Adding..."
+                    : isEdit
+                    ? "Save Changes"
+                    : "Add Employee"}
                 </button>
               </div>
             </form>

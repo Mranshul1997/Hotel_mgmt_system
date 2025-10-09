@@ -9,6 +9,9 @@ export interface IUser extends Document {
   perMinuteSalary: number;
   perDaySalary: number;
   role: string;
+  biometric: string;
+  attendance: string;
+  shift: string;
   shiftId: Types.ObjectId; // Referencing Shift
   createdAt: Date;
   updatedAt: Date;
@@ -25,6 +28,9 @@ const UserSchema: Schema = new Schema({
   perDaySalary: { type: Number },
   role: { type: String, required: true },
   shiftId: { type: Schema.Types.ObjectId, ref: 'Shift' },
+    biometric: { type: String, default: "Pending" },      // ADD THIS
+  attendance: { type: String, default: "100%" },        // ADD THIS
+  shift: { type: String },    
 }, { timestamps: true}
 );
 

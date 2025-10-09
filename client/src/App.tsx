@@ -18,6 +18,7 @@ import NotFound from "./pages/NotFound";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminBiometric from "./pages/AdminBiometric";
 import AdminPayrollRules from "./pages/AdminPayrollRules";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 const queryClient = new QueryClient();
 
@@ -31,7 +32,7 @@ const App = () => (
           <Route path="/" element={<Welcome />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/dashboard" element={<Dashboard />} />
-
+          <Route path="reset-password/:token" element={<ResetPasswordPage />} />
           {/* Nested Admin Routes */}
           <Route path="/admin-dashboard" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
@@ -44,14 +45,14 @@ const App = () => (
           </Route>
 
           {/* User Layout Route */}
-          <Route
+          {/* <Route
             path="/user-dashboard"
             element={
               <UserLayout>
                 <UserDashboard />
               </UserLayout>
             }
-          />
+          /> */}
 
           <Route path="*" element={<NotFound />} />
         </Routes>

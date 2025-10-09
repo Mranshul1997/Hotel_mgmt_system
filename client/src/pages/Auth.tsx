@@ -1,69 +1,78 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Fingerprint, Mail, Lock, User, ArrowLeft } from "lucide-react";
+import { Fingerprint, Mail, Lock, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { forgotPasswordApi, loginApi } from "../api/authApi"; // Corrected import path
 
-type AuthMode = "login" | "signup" | "forgot";
+type AuthMode = "login" | "forgot";
 
 const Auth = () => {
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (mode === "forgot") {
-      toast({
-        title: "Reset Link Sent",
-        description: "Check your email for password reset instructions.",
-      });
-      setMode("login");
+      try {
+        setLoading(true);
+        await forgotPasswordApi(email);
+        toast({
+          title: "Reset Link Sent",
+          description: "Check your email for password reset instructions.",
+        });
+        setMode("login");
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to send reset link, try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
-    if (mode === "signup") {
-      // Simulate signup
-      localStorage.setItem(
-        "user",
-        JSON.stringify({ email, name, role: "user" })
-      );
+    setLoading(true);
+    try {
+      const data = await loginApi(email, password);
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
       toast({
-        title: "Account Created",
-        description: "Welcome to BiometriQ!",
+        title: "Login Successful",
+        description: `Welcome back, ${data.user.name}!`,
       });
-      navigate("/dashboard");
-      return;
-    }
 
-    // Login simulation - check for admin
-    // Login simulation - check for admin
-    if (email === "admin@biometriq.com" && password === "admin123") {
-      localStorage.setItem(
-        "user",
-        JSON.stringify({ email, name: "Admin", role: "admin" })
-      );
-      navigate("/admin-dashboard");
-    } else {
-      localStorage.setItem(
-        "user",
-        JSON.stringify({ email, name: name || "User", role: "user" })
-      );
-      navigate("/user-dashboard");
+      // Redirect for admin or subadmin goes to admin dashboard
+      if (data.user.role === "admin" || data.user.role === "subadmin") {
+        navigate("/admin-dashboard");
+      } else {
+        toast({
+          title: "Unauthorized",
+          description: "Your role is not allowed to access this system.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Login Failed",
+        description: error.response?.data?.message || "Server error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-
-    toast({
-      title: "Login Successful",
-      description: "Welcome back!",
-    });
   };
 
   return (
@@ -95,42 +104,16 @@ const Auth = () => {
 
           {/* Title */}
           <h2 className="text-3xl font-bold text-center mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            {mode === "login"
-              ? "Welcome Back"
-              : mode === "signup"
-              ? "Create Account"
-              : "Reset Password"}
+            {mode === "login" ? "Welcome Back" : "Reset Password"}
           </h2>
           <p className="text-center text-muted-foreground mb-8">
             {mode === "login"
               ? "Sign in to your account"
-              : mode === "signup"
-              ? "Join BiometriQ today"
               : "Enter your email to reset password"}
           </p>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === "signup" && (
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-foreground">
-                  Full Name
-                </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="John Doe"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="pl-10 bg-input border-border text-foreground"
-                    required
-                  />
-                </div>
-              </div>
-            )}
-
             <div className="space-y-2">
               <Label htmlFor="email" className="text-foreground">
                 Email
@@ -145,6 +128,7 @@ const Auth = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 bg-input border-border text-foreground"
                   required
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -164,6 +148,7 @@ const Auth = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10 bg-input border-border text-foreground"
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -200,45 +185,25 @@ const Auth = () => {
               type="submit"
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
               style={{ boxShadow: "0 0 20px hsl(var(--primary) / 0.3)" }}
+              disabled={loading}
             >
-              {mode === "login"
-                ? "Sign In"
-                : mode === "signup"
-                ? "Create Account"
-                : "Send Reset Link"}
+              {mode === "login" ? "Sign In" : "Send Reset Link"}
             </Button>
           </form>
 
-          {/* Toggle mode */}
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            {mode === "forgot" ? (
+          {mode === "forgot" && (
+            <div className="mt-6 text-center text-sm text-muted-foreground">
               <button
                 onClick={() => setMode("login")}
                 className="text-primary hover:underline"
+                disabled={loading}
               >
                 Back to login
               </button>
-            ) : (
-              <>
-                {mode === "login"
-                  ? "Don't have an account? "
-                  : "Already have an account? "}
-                <button
-                  onClick={() => setMode(mode === "login" ? "signup" : "login")}
-                  className="text-primary hover:underline font-semibold"
-                >
-                  {mode === "login" ? "Sign up" : "Sign in"}
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Demo hint */}
-          {mode === "login" && (
-            <div className="mt-4 p-3 bg-muted/50 rounded-lg text-xs text-muted-foreground text-center">
-              Demo: admin@biometriq.com / admin123 for admin access
             </div>
           )}
+
+         
         </div>
       </div>
     </div>

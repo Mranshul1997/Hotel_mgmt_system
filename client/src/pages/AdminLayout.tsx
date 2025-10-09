@@ -10,6 +10,7 @@ import {
   Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { logoutApi } from "../api/authApi"; // Import logout API function
 
 // Admin sidebar tabs
 const adminTabs = [
@@ -26,7 +27,8 @@ const adminTabs = [
     key: "payrollrules",
     label: "Payroll & OT Rules",
     icon: <DollarSign size={20} />,
-  }];
+  },
+];
 
 const AdminLayout = () => {
   const location = useLocation();
@@ -35,12 +37,20 @@ const AdminLayout = () => {
   // Parse current path for active tab
   const pathKey = location.pathname.split("/")[2] || "";
 
-  const handleTabClick = (key) => {
+  const handleTabClick = (key: string) => {
     navigate(key === "" ? "/admin-dashboard" : `/admin-dashboard/${key}`);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await logoutApi(); // call backend logout to blacklist token
+    } catch (error) {
+      // Optionally handle error, e.g. show toast
+      console.error("Logout API failed", error);
+    }
+    // Clear client-side storage anyway
     localStorage.removeItem("user");
+    localStorage.removeItem("token");
     navigate("/auth");
   };
 

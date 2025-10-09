@@ -15,6 +15,8 @@ interface JwtPayload {
   role: string;
 }
 
+export const blacklistedTokens: Set<string> = new Set();
+
 export const verifyToken = (
   req: Request,
   res: Response,
@@ -24,12 +26,16 @@ export const verifyToken = (
   if (!token)
     return res.status(401).json({ message: "No token, authorization denied" });
 
+  if (blacklistedTokens.has(token)) {
+    return res.status(401).json({ message: "Token is blacklisted" });
+  }
+
   try {
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET as string
     ) as JwtPayload;
-    req.user = decoded; // attach user id and role to request
+    req.user = decoded;
     next();
   } catch {
     res.status(401).json({ message: "Token is not valid" });

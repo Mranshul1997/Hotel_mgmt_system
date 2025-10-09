@@ -394,10 +394,15 @@ const AdminDashboard = () => {
       return;
     }
     const parsedUser = JSON.parse(userData);
-    if (parsedUser.role !== "admin") {
-      navigate("/user-dashboard");
+    // if (parsedUser.role !== "admin") {
+    //   navigate("/user-dashboard");
+    //   return;
+    // }
+    if (parsedUser.role !== "admin" && parsedUser.role !== "subadmin") {
+      navigate("/auth"); // Or logout
       return;
     }
+
     setUser(parsedUser);
   }, [navigate]);
 
@@ -432,6 +437,11 @@ const AdminDashboard = () => {
 
       {/* Header + Main Content */}
       <div className="flex-1 flex flex-col">
+        {/* <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-foreground min-w-full">
+            BiometriQ Admin
+          </h1>
+        </div> */}
         <main className="p-6 overflow-auto">{renderTabContent()}</main>
       </div>
     </div>

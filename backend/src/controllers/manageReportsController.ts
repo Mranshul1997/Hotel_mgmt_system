@@ -249,3 +249,84 @@ export const getDailyReport = async (req: Request, res: Response) => {
     return res.status(500).json({ message: error.message });
   }
 };
+
+export const getPayrollReport = async (req: Request, res: Response) => {
+  try {
+    const { year, month } = req.params;
+
+    // Convert to integers
+    const yearInt = parseInt(year);
+    const monthInt = parseInt(month);
+
+    // Define start and end dates of the month
+    const startDate = new Date(yearInt, monthInt - 1, 1);
+    const endDate = new Date(yearInt, monthInt, 1);
+
+    // MongoDB aggregation pipeline
+    const monthlyReport = await ManageReport.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lt: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: "$userId",
+          deductionAmount: { $sum: "$totalDeductionsAmount" },
+          oTAmount: { $sum: "$totalOtAmount" },
+          netSalary: { $sum: "$netDaySalary" },
+        },
+      },
+      {
+        // Lookup user details (optional)
+        $lookup: {
+          from: "users", // collection name in MongoDB
+          localField: "_id",
+          foreignField: "_id",
+          as: "userDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$userDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        // Compute grand totals
+        $group: {
+          _id: null,
+          users: {
+            $push: {
+              userId: "$_id",
+              name: "$userDetails.name",
+              salary: "$userDetails.salary",
+              role: "$userDetails.role",
+              deductionAmount: "$deductionAmount",
+              oTAmount: "$oTAmount",
+              netSalary: "$netSalary",
+            },
+          },
+          totaldeducationAmount: { $sum: "$deductionAmount" },
+          totalOTAmount: { $sum: "$oTAmount" },
+          totalNetSalary: { $sum: "$netSalary" },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          users: 1,
+          totaldeducationAmount: 1,
+          totalOTAmount: 1,
+          totalNetSalary: 1,
+        },
+      },
+    ]);
+
+    res.status(200).json(monthlyReport[0] || { users: [], totals: {} });
+  } catch (error) {
+    console.error("Error generating report:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+  
+};

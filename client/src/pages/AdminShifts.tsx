@@ -1,165 +1,214 @@
-import React, { useState } from "react";
+// client/components/AdminShifts.tsx
+import React, { useEffect, useState } from "react";
+import {
+  listShifts,
+  createShift,
+  updateShift,
+  deleteShift,
+  ShiftType,
+} from "../api/shiftApi";
 
-const initialShiftDetails = [
-  {
-    id: 1,
-    name: "Morning",
-    timing: "07:00 - 15:00",
-    breaks: [
-      { name: "Tea Break", timing: "10:00 - 10:15" },
-      { name: "Lunch Break", timing: "13:00 - 13:30" },
-    ],
-  },
-  {
-    id: 2,
-    name: "Evening",
-    timing: "15:00 - 23:00",
-    breaks: [
-      { name: "Tea Break", timing: "18:00 - 18:15" },
-      { name: "Dinner Break", timing: "21:00 - 21:30" },
-    ],
-  },
-  {
-    id: 3,
-    name: "Night",
-    timing: "23:00 - 07:00",
-    breaks: [
-      { name: "Tea Break", timing: "02:00 - 02:15" },
-      { name: "Midnight Snack", timing: "04:00 - 04:30" },
-    ],
-  },
-];
+const emptyForm: Omit<ShiftType, "_id" | "createdAt" | "updatedAt"> = {
+  name: "",
+  checkInTime: "",
+  checkOutTime: "",
+};
 
 const AdminShifts = () => {
-  const [shifts, setShifts] = useState(initialShiftDetails);
-  const [editingId, setEditingId] = useState(null);
-  const [editShift, setEditShift] = useState(null);
+  const [shifts, setShifts] = useState<ShiftType[]>([]);
+  const [form, setForm] = useState<typeof emptyForm>(emptyForm);
+  const [showModal, setShowModal] = useState(false);
+  const [isEdit, setIsEdit] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
-  // Start editing a shift
-  const handleEditClick = (shift) => {
-    setEditingId(shift.id);
-    // Make a deep copy for editing to avoid immediate state update
-    setEditShift(JSON.parse(JSON.stringify(shift)));
+  const fetchShifts = async () => {
+    try {
+      const data = await listShifts();
+      setShifts(Array.isArray(data) ? data : []);
+    } catch {
+      setShifts([]);
+    }
   };
 
-  // Cancel editing
-  const handleCancel = () => {
+  useEffect(() => {
+    fetchShifts();
+  }, []);
+
+  const handleShowAdd = () => {
+    setForm(emptyForm);
+    setIsEdit(false);
     setEditingId(null);
-    setEditShift(null);
+    setShowModal(true);
   };
 
-  // Handle changes in timing or breaks in edit mode
-  const handleShiftTimingChange = (value) => {
-    setEditShift((prev) => ({ ...prev, timing: value }));
+  const handleShowEdit = (shift: ShiftType) => {
+    setForm({
+      name: shift.name,
+      checkInTime: shift.checkInTime,
+      checkOutTime: shift.checkOutTime,
+    });
+    setIsEdit(true);
+    setEditingId(shift._id!);
+    setShowModal(true);
   };
 
-  const handleBreakChange = (idx, value) => {
-    const newBreaks = [...editShift.breaks];
-    newBreaks[idx].timing = value;
-    setEditShift((prev) => ({ ...prev, breaks: newBreaks }));
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // Save changes from editing
-  const handleSave = () => {
-    setShifts((prev) => prev.map((s) => (s.id === editingId ? editShift : s)));
-    setEditingId(null);
-    setEditShift(null);
-    alert("Shift timings saved!");
-    // Replace alert with actual API call if needed
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    try {
+      if (isEdit && editingId) {
+        await updateShift(editingId, form);
+      } else {
+        await createShift(form);
+      }
+      setShowModal(false);
+      setForm(emptyForm);
+      setIsEdit(false);
+      setEditingId(null);
+      fetchShifts();
+    } catch (err) {
+      setError("Failed to save shift");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Delete this shift?")) return;
+    try {
+      await deleteShift(id);
+      fetchShifts();
+    } catch {
+      alert("Failed to delete");
+    }
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <h2 className="text-3xl font-bold mb-8">Manage Shift Timings & Breaks</h2>
-      <div className="overflow-x-auto bg-gray-900 rounded-xl shadow border border-blue-700/30">
-        <table className="min-w-full divide-y divide-blue-700/50 text-base">
+    <div className="max-w-3xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">Manage Shifts</h2>
+        <button
+          className="bg-primary text-white font-semibold px-4 py-2 rounded-lg shadow"
+          onClick={handleShowAdd}
+        >
+          + Add Shift
+        </button>
+      </div>
+      <div className="overflow-x-auto bg-gray-900 rounded-xl shadow border border-blue-700/20">
+        <table className="min-w-full divide-y divide-blue-700/50">
           <thead>
-            <tr className="text-left text-gray-400 uppercase text-sm">
-              <th className="p-4 w-20">S.No.</th>
-              <th className="p-4 w-28">Shift Name</th>
-              <th className="p-4 w-52">Timing</th>
-              <th className="p-4">Breaks</th>
-              <th className="p-4 w-32">Action</th>
+            <tr className="text-left text-gray-400 uppercase text-xs">
+              <th className="p-3">Name</th>
+              <th className="p-3">Check-In</th>
+              <th className="p-3">Check-Out</th>
+              <th className="p-3">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-700">
-            {shifts.map((shift) => (
-              <tr
-                key={shift.id}
-                className={`hover:bg-gray-800/30 cursor-default align-top`}
-              >
-                <td className="p-4 font-mono">{shift.id}</td>
-                <td className="p-4 font-semibold text-blue-400">
-                  {shift.name}
-                </td>
-                <td className="p-4 font-mono text-green-400">
-                  {editingId === shift.id ? (
-                    <input
-                      type="text"
-                      className="w-full bg-input border border-border text-white rounded p-2 font-mono"
-                      value={editShift.timing}
-                      onChange={(e) => handleShiftTimingChange(e.target.value)}
-                    />
-                  ) : (
-                    shift.timing
-                  )}
-                </td>
-                <td className="p-4">
-                  {editingId === shift.id
-                    ? editShift.breaks.map((brk, idx) => (
-                        <div key={idx} className="mb-1 flex items-center gap-2">
-                          <span className="font-semibold text-yellow-400">
-                            {brk.name}:
-                          </span>
-                          <input
-                            type="text"
-                            className="bg-input border border-border text-white rounded p-1 font-mono w-36"
-                            value={brk.timing}
-                            onChange={(e) =>
-                              handleBreakChange(idx, e.target.value)
-                            }
-                          />
-                        </div>
-                      ))
-                    : shift.breaks.map((brk, idx) => (
-                        <div key={idx} className="mb-1">
-                          <span className="font-semibold text-yellow-400">
-                            {brk.name}:
-                          </span>{" "}
-                          <span className="font-mono">{brk.timing}</span>
-                        </div>
-                      ))}
-                </td>
-                <td className="p-4">
-                  {editingId === shift.id ? (
-                    <>
-                      <button
-                        onClick={handleSave}
-                        className="mr-2 px-4 py-1 bg-green-600 hover:bg-green-700 rounded text-white font-semibold"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={handleCancel}
-                        className="px-4 py-1 bg-gray-700 hover:bg-gray-600 rounded text-white font-semibold"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
+          <tbody className="divide-y divide-gray-800">
+            {Array.isArray(shifts) &&
+              shifts.map((shift) => (
+                <tr key={shift._id}>
+                  <td className="p-3">{shift.name}</td>
+                  <td className="p-3">{shift.checkInTime}</td>
+                  <td className="p-3">{shift.checkOutTime}</td>
+                  <td className="p-3 flex gap-2">
                     <button
-                      onClick={() => handleEditClick(shift)}
-                      className="px-4 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white font-semibold"
+                      className="text-xs text-blue-400 underline"
+                      onClick={() => handleShowEdit(shift)}
                     >
                       Edit
                     </button>
-                  )}
-                </td>
-              </tr>
-            ))}
+                    <button
+                      className="text-xs text-red-400 underline"
+                      onClick={() => handleDelete(shift._id!)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
+
+      {/* Add/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
+          <div className="bg-gray-900 p-8 rounded-xl shadow-lg max-w-xs w-full border border-primary/30">
+            <h3 className="text-xl font-bold mb-4 text-white">
+              {isEdit ? "Edit Shift" : "Add New Shift"}
+            </h3>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div>
+                <label className="block text-sm text-gray-200 mb-2">
+                  Shift Name
+                </label>
+                <input
+                  className="w-full p-2 rounded bg-input border-border text-white"
+                  type="text"
+                  name="name"
+                  required
+                  value={form.name}
+                  onChange={handleChange}
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-200 mb-2">
+                  Check-In Time
+                </label>
+                <input
+                  className="w-full p-2 rounded bg-input border-border text-white"
+                  type="time"
+                  name="checkInTime"
+                  required
+                  value={form.checkInTime}
+                  onChange={handleChange}
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-200 mb-2">
+                  Check-Out Time
+                </label>
+                <input
+                  className="w-full p-2 rounded bg-input border-border text-white"
+                  type="time"
+                  name="checkOutTime"
+                  required
+                  value={form.checkOutTime}
+                  onChange={handleChange}
+                />
+              </div>
+              {error && (
+                <div className="text-sm text-red-400 mb-2">{error}</div>
+              )}
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-gray-700 text-gray-200 rounded"
+                  onClick={() => {
+                    setShowModal(false);
+                    setIsEdit(false);
+                    setForm(emptyForm);
+                    setEditingId(null);
+                    setError("");
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary text-white font-bold rounded"
+                >
+                  {isEdit ? "Save Changes" : "Add Shift"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

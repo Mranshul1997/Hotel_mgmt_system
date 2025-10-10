@@ -5,6 +5,7 @@ import {
   updateEmployee,
   deleteEmployee,
 } from "../api/employeeApi";
+import { listShifts } from "../api/shiftApi";
 import EmployeeReport from "./EmployeeReport";
 
 const roles = [
@@ -16,14 +17,13 @@ const roles = [
   "ROOM SERVICE",
   "HOUSE KEEPING",
 ];
-const shifts = ["Morning", "Afternoon", "Evening", "Night"];
 
 const emptyForm = {
   name: "",
   email: "",
   age: "",
   role: roles[0],
-  shift: shifts[0],
+  shift: "",
   biometric: "Pending",
   attendance: "100%",
   salary: "",
@@ -31,11 +31,12 @@ const emptyForm = {
 
 const AdminEmployees = () => {
   const [employees, setEmployees] = useState([]);
-  console.log(employees, "<>?<>?<>?<>?");
+  const [shifts, setShifts] = useState([]); // Fetched shifts from API
   const [showModal, setShowModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [showReport, setShowReport] = useState(false);
   const [form, setForm] = useState<any>(emptyForm);
+  console.log(form, "<>?<>?<>?");
   const [isEdit, setIsEdit] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -52,13 +53,24 @@ const AdminEmployees = () => {
     setLoading(false);
   };
 
+  // Fetch available shifts
+  const fetchShifts = async () => {
+    try {
+      const shiftArr = await listShifts();
+      setShifts(Array.isArray(shiftArr) ? shiftArr : []);
+    } catch (err) {
+      setShifts([]);
+    }
+  };
+
   useEffect(() => {
     fetchEmployees();
+    fetchShifts();
   }, []);
 
   // Open Add modal
   const handleShowAdd = () => {
-    setForm(emptyForm);
+    setForm({ ...emptyForm, shift: shifts[0]?.name || "" });
     setIsEdit(false);
     setShowModal(true);
   };
@@ -70,7 +82,7 @@ const AdminEmployees = () => {
       email: emp.email,
       age: emp.age,
       role: emp.role,
-      shift: emp.shift,
+      shift: emp.shift?.name || emp.shift,
       biometric: emp.biometric,
       attendance: emp.attendance,
       salary: emp.salary,
@@ -81,16 +93,18 @@ const AdminEmployees = () => {
     setShowModal(true);
   };
 
-  // Handle input in modal form
-  const handleChange = (e: any) => {
+  // Form change handler
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     setForm({
       ...form,
       [e.target.name]: e.target.value,
     });
   };
 
-  // Add new employee - API integration
-  const handleAddEmployee = async (e) => {
+  // Add Employee submit
+  const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     try {
@@ -99,7 +113,8 @@ const AdminEmployees = () => {
         salary: Number(form.salary),
         biometric: form.biometric,
         attendance: form.attendance,
-        shift: form.shift,
+        shiftId: form.shift,
+        shift: shifts.find((s) => s._id === form.shift)?.name || "",
       });
       setShowModal(false);
       setForm(emptyForm);
@@ -109,7 +124,8 @@ const AdminEmployees = () => {
     }
   };
 
-  const handleEditEmployee = async (e) => {
+  // Edit Employee submit
+  const handleEditEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     try {
@@ -127,7 +143,7 @@ const AdminEmployees = () => {
     }
   };
 
-  // Delete employee - API integration
+  // Delete Employee handler
   const handleDeleteEmployee = async (emp: any) => {
     if (!window.confirm(`Delete employee ${emp.name}?`)) return;
     try {
@@ -139,7 +155,7 @@ const AdminEmployees = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Manage Employees</h2>
         <button
@@ -160,8 +176,6 @@ const AdminEmployees = () => {
               <th className="p-3">Shift</th>
               <th className="p-3">Biometric</th>
               <th className="p-3">Salary</th>
-              <th className="p-3">Attendance</th>
-              <th className="p-3">View report</th>
               <th className="p-3">Action</th>
             </tr>
           </thead>
@@ -175,18 +189,6 @@ const AdminEmployees = () => {
                 <td className="p-3">{emp.shift?.name || emp.shift}</td>
                 <td className="p-3">{emp.biometric}</td>
                 <td className="p-3">{emp.salary}</td>
-                <td className="p-3">{emp.attendance}</td>
-                <td className="p-3">
-                  <button
-                    className="text-xs text-green-400 underline"
-                    onClick={() => {
-                      setSelectedEmployee(emp);
-                      setShowReport(true);
-                    }}
-                  >
-                    View Report
-                  </button>
-                </td>
                 <td className="p-3 flex gap-2">
                   <button
                     className="text-xs text-blue-400 underline"
@@ -274,7 +276,6 @@ const AdminEmployees = () => {
                   disabled={loading}
                 />
               </div>
-
               <div>
                 <label className="block text-sm text-gray-200 mb-2">Role</label>
                 <select
@@ -291,6 +292,7 @@ const AdminEmployees = () => {
                   ))}
                 </select>
               </div>
+              {/* SHIFT DROPDOWN: FROM API */}
               <div>
                 <label className="block text-sm text-gray-200 mb-2">
                   Shift
@@ -300,13 +302,17 @@ const AdminEmployees = () => {
                   name="shift"
                   value={form.shift}
                   onChange={handleChange}
-                  disabled={loading}
+                  disabled={loading || shifts.length === 0}
+                  required
                 >
-                  {shifts.map((shift, idx) => (
-                    <option key={idx} value={shift}>
-                      {shift}
+                  {shifts.map((shift: any) => (
+                    <option key={shift._id} value={shift._id}>
+                      {shift.name}
                     </option>
                   ))}
+                  {shifts.length === 0 && (
+                    <option value="">No shifts available</option>
+                  )}
                 </select>
               </div>
               <div>
@@ -324,6 +330,7 @@ const AdminEmployees = () => {
                   <option value="Pending">Pending</option>
                 </select>
               </div>
+              {/* 
               <div>
                 <label className="block text-sm text-gray-200 mb-2">
                   Attendance (%)
@@ -337,7 +344,7 @@ const AdminEmployees = () => {
                   disabled={loading}
                 />
               </div>
-
+              */}
               <div>
                 <label className="block text-sm text-gray-200 mb-2">
                   Salary (₹ per month)

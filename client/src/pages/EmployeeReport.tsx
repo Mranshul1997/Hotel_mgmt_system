@@ -318,7 +318,7 @@ const EmployeeReport = ({ employee, onClose, salary = 15000 }) => {
           >
             Daily
           </button>
-          <button
+          {/* <button
             className={`px-4 py-2 rounded font-bold ${
               mode === "weekly"
                 ? "bg-primary text-white"
@@ -327,7 +327,7 @@ const EmployeeReport = ({ employee, onClose, salary = 15000 }) => {
             onClick={() => setMode("weekly")}
           >
             Weekly
-          </button>
+          </button> */}
 
           <select
             className="ml-auto py-2 px-3 rounded bg-gray-800 text-white font-bold"
@@ -345,7 +345,6 @@ const EmployeeReport = ({ employee, onClose, salary = 15000 }) => {
           </button>
         </div>
         {/* Attendance Table (Scrollable, fixed height) */}
-        /* Your scrollable wrapper div */
         <div
           className="overflow-x-auto mb-6"
           style={{

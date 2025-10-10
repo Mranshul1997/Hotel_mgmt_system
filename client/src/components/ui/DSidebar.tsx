@@ -20,11 +20,7 @@ const DSidebar = ({ onSelect, activeTab }) => {
       label: "Biometric Settings",
       icon: <Fingerprint size={20} />,
     },
-    {
-      key: "payrollrules",
-      label: "Payroll & OT Rules",
-      icon: <TrendingUp size={20} />,
-    },
+   
   ];
 
   return (

@@ -23,11 +23,7 @@ const adminTabs = [
     label: "Biometric Settings",
     icon: <Fingerprint size={20} />,
   }, // New
-  {
-    key: "payrollrules",
-    label: "Payroll & OT Rules",
-    icon: <DollarSign size={20} />,
-  },
+  
 ];
 
 const AdminLayout = () => {

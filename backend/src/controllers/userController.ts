@@ -1,10 +1,37 @@
-import { Request, Response } from 'express';
-import User from '../models/userModel';
+import { Request, Response } from "express";
+import User from "../models/userModel";
 
+// Create a user
 // Create a user
 export const createUser = async (req: Request, res: Response) => {
   try {
-    const user = new User(req.body);
+    // Find last user with empId
+    const lastUser = await User.findOne({ empId: { $exists: true } })
+      .sort({ empId: -1 })
+      .lean(); // optional, but ensures plain JS object
+
+    let nextEmpNum = 1;
+
+    // Type assertion step to fix TypeScript error
+    const lastEmpId: string | undefined =
+      lastUser && typeof (lastUser as any).empId === "string"
+        ? (lastUser as any).empId
+        : undefined;
+
+    if (lastEmpId) {
+      const splitArr = lastEmpId.split("-");
+      if (splitArr.length === 2 && !isNaN(Number(splitArr[1]))) {
+        nextEmpNum = parseInt(splitArr[1], 10) + 1;
+      }
+    }
+
+    const newEmpId = `emp-${nextEmpNum.toString().padStart(3, "0")}`;
+
+    const user = new User({
+      ...req.body,
+      empId: newEmpId,
+    });
+
     const saved = await user.save();
     res.status(201).json(saved);
   } catch (error) {
@@ -33,10 +60,12 @@ export const updateUser = async (req: Request, res: Response) => {
       updatedData.perMinuteSalary = updatedData.perDaySalary / (8 * 60);
     }
 
-    const updated = await User.findByIdAndUpdate(id, updatedData, { new: true });
+    const updated = await User.findByIdAndUpdate(id, updatedData, {
+      new: true,
+    });
 
     if (!updated) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     res.json(updated);
@@ -51,9 +80,9 @@ export const deleteUser = async (req: Request, res: Response) => {
     const id = req.params.id;
     const deleted = await User.findByIdAndDelete(id);
     if (!deleted) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
-    res.json({ message: 'User deleted' });
+    res.json({ message: "User deleted" });
   } catch (error) {
     res.status(400).json({ message: error });
   }

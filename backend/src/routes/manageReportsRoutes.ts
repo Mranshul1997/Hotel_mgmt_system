@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { checkInUser, checkoutUser, getMonthlyReport, getDailyReport, getPayrollReport, dashboardReport } from '../controllers/manageReportsController';
+import { checkInUser, checkoutUser, getMonthlyReport, getDailyReport, getPayrollReport, dashboardReport, exportPayrollCsv } from '../controllers/manageReportsController';
 
 const router = Router();
 
@@ -9,5 +9,6 @@ router.post('/monthly', getMonthlyReport);
 router.post('/daily', getDailyReport);
 router.get('/payroll/:year/:month', getPayrollReport);
 router.get('/dashboard/:year/:month', dashboardReport);
+router.get('/payroll-csv/:year/:month', exportPayrollCsv);
 
 export default router;

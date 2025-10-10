@@ -1,4 +1,3 @@
-// client/components/AdminShifts.tsx
 import React, { useEffect, useState } from "react";
 import {
   listShifts,
@@ -13,6 +12,18 @@ const emptyForm: Omit<ShiftType, "_id" | "createdAt" | "updatedAt"> = {
   checkInTime: "",
   checkOutTime: "",
 };
+
+// Helper to always format time as "HH:mm"
+function formatTime24(time: string) {
+  if (!time) return "";
+  // If already "HH:mm", return
+  if (/^\d{2}:\d{2}$/.test(time)) return time;
+  // If browser gives "H:mm", pad start
+  if (/^\d:\d{2}$/.test(time)) return `0${time}`;
+  // If browser gives "HH:mm:ss", take first 5
+  if (/^\d{2}:\d{2}:\d{2}$/.test(time)) return time.slice(0, 5);
+  return time; // fallback: return as is
+}
 
 const AdminShifts = () => {
   const [shifts, setShifts] = useState<ShiftType[]>([]);
@@ -45,8 +56,8 @@ const AdminShifts = () => {
   const handleShowEdit = (shift: ShiftType) => {
     setForm({
       name: shift.name,
-      checkInTime: shift.checkInTime,
-      checkOutTime: shift.checkOutTime,
+      checkInTime: formatTime24(shift.checkInTime),
+      checkOutTime: formatTime24(shift.checkOutTime),
     });
     setIsEdit(true);
     setEditingId(shift._id!);
@@ -60,11 +71,17 @@ const AdminShifts = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    // Enforce 24hr formatting before send
+    const payload = {
+      ...form,
+      checkInTime: formatTime24(form.checkInTime),
+      checkOutTime: formatTime24(form.checkOutTime),
+    };
     try {
       if (isEdit && editingId) {
-        await updateShift(editingId, form);
+        await updateShift(editingId, payload);
       } else {
-        await createShift(form);
+        await createShift(payload);
       }
       setShowModal(false);
       setForm(emptyForm);
@@ -112,8 +129,8 @@ const AdminShifts = () => {
               shifts.map((shift) => (
                 <tr key={shift._id}>
                   <td className="p-3">{shift.name}</td>
-                  <td className="p-3">{shift.checkInTime}</td>
-                  <td className="p-3">{shift.checkOutTime}</td>
+                  <td className="p-3">{formatTime24(shift.checkInTime)}</td>
+                  <td className="p-3">{formatTime24(shift.checkOutTime)}</td>
                   <td className="p-3 flex gap-2">
                     <button
                       className="text-xs text-blue-400 underline"

@@ -99,3 +99,14 @@ export async function downloadPayrollPdf(year: number, month: number) {
   });
   return response.data; // Use FileSaver.js as needed
 }
+
+export async function getDashboardReport(year: number, month: number) {
+  const token = localStorage.getItem("token");
+  const response = await axios.get(
+    `${API_BASE_URL}/reports/dashboard/${year}/${month}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  return response.data;
+}

@@ -5,6 +5,10 @@ import ManageReport from "../models/manageReportsModel";
 import mongoose from "mongoose";
 const { Parser } = require("json2csv");
 import moment from "moment";
+import { log } from "node:console";
+import path from "path";
+import fs from "fs";
+const PDFDocument = require("pdfkit");
 
 export const checkInUser = async (req: Request, res: Response) => {
   try {
@@ -559,5 +563,339 @@ export const exportPayrollCsv = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("CSV export error: ", error);
     return res.status(500).json({ message: "Could not generate CSV", error });
+  }
+};
+
+export const exportPayrollPdf = async (req: Request, res: Response) => {
+  try {
+    const { year, month } = req.params;
+    const yearInt = parseInt(year);
+    const monthInt = parseInt(month);
+    const startDate = new Date(yearInt, monthInt - 1, 1);
+    const endDate = new Date(yearInt, monthInt, 1);
+
+    // Do aggregation (like for CSV)
+    const monthlyReport = await ManageReport.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lt: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: "$userId",
+          deductionAmount: { $sum: "$totalDeductionsAmount" },
+          oTAmount: { $sum: "$totalOtAmount" },
+          netSalary: { $sum: "$netDaySalary" },
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "userDetails",
+        },
+      },
+      { $unwind: { path: "$userDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          userId: "$_id",
+          name: "$userDetails.name",
+          role: "$userDetails.role",
+          salary: "$userDetails.salary",
+          deductionAmount: 1,
+          oTAmount: 1,
+          netSalary: 1,
+        },
+      },
+    ]);
+
+    // PDF generation
+    const doc = new PDFDocument({ margin: 30, size: "A4" });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=payroll_report_${year}_${month}.pdf`
+    );
+    doc.pipe(res);
+
+    doc
+      .fontSize(18)
+      .text(`Payroll Report - ${month}/${year}`, { align: "center" });
+    doc.moveDown();
+
+    // Table Header
+    doc
+      .fontSize(13)
+      .text(
+        "EmpID   Name             Role        Salary    OT     Late Deduction   Net Pay"
+      );
+    doc.moveDown(0.2);
+
+    // Table Rows
+    monthlyReport.forEach((emp) => {
+      doc.text(
+        `${emp.userId || ""}    ${emp.name || "-"}      ${
+          emp.role || "-"
+        }     ${emp.salary || 0}     ${emp.oTAmount || 0}      ${
+          emp.deductionAmount || 0
+        }         ${emp.netSalary || 0}`
+      );
+    });
+
+    doc.end();
+  } catch (error) {
+    console.error("PDF export error: ", error);
+    return res.status(500).json({ message: "Could not generate PDF", error });
+  }
+};
+
+export const exportUserPayrollPdf = async (req: Request, res: Response) => {
+  try {
+    const { year, month, userId } = req.params;
+    const yearInt = parseInt(year);
+    const monthInt = parseInt(month);
+
+    const reports = await ManageReport.find({
+      userId: new mongoose.Types.ObjectId(userId),
+      createdAt: {
+        $gte: new Date(yearInt, monthInt - 1, 1),
+        $lt: new Date(yearInt, monthInt, 1),
+      },
+    }).lean();
+
+    const user = await User.findById(userId);
+
+    // --- Setup PDF and font ---
+    const doc = new PDFDocument({ size: "A4", margin: 40 });
+    const assetsDir = path.resolve(__dirname, "../../assets");
+    const fontPath = path.join(assetsDir, "DejaVuSans.ttf");
+    const logoPath = path.join(assetsDir, "HDP_LOGO.jpeg");
+    const logoX = -495;
+    const logoY = 42;
+    const logoSize = 60;
+
+    if (fs.existsSync(fontPath)) {
+      doc.registerFont("DejaVu", fontPath);
+      doc.font("DejaVu");
+    } else {
+      doc.font("Helvetica");
+      console.warn("⚠️ DejaVuSans.ttf not found, using default font");
+    }
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=SalarySlip_${
+        user?.name || userId
+      }_${year}-${month}.pdf`
+    );
+    doc.pipe(res);
+
+    // === NEW: Light sky blue background for entire page ===
+    doc.rect(0, 0, doc.page.width, doc.page.height).fill("#fafcff");
+    doc.fillColor("#000"); // reset for everything else
+
+    // === NEW: Left-corner circular logo ===
+    if (fs.existsSync(logoPath)) {
+      doc.save();
+      doc.translate(50, 40); // left offset, top position
+      doc.circle(30, 30, 30).clip();
+      doc.image(logoPath, 0, 0, { width: 60, height: 60 });
+      doc.restore();
+    }
+
+    // --- Logo ---
+    let y = 40;
+    if (fs.existsSync(logoPath)) {
+      doc.save();
+      // Draw a circular clip path
+      doc
+        .circle(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2)
+        .clip();
+      // Draw the logo inside the circular path
+      doc.image(logoPath, logoX, logoY, { width: logoSize, height: logoSize });
+      doc.restore();
+    } else {
+      console.warn("⚠️ Logo not found at:", logoPath);
+    }
+    y += 90;
+
+    // --- Header ---
+    doc
+      .fontSize(20)
+      .fillColor("#0a2342")
+      .font("DejaVu")
+      .text("Hotel Dixit Palace", { align: "center", underline: true });
+    doc
+      .fontSize(11)
+      .fillColor("#333")
+      .text("NH 44, Jhansi Road, Datia (M.P.)", { align: "center" })
+      .text("Contact: 059825465 | Email: dixitpalace@datia.com", {
+        align: "center",
+      });
+
+    doc.moveDown(0.5);
+    doc
+      .font("DejaVu")
+      .fontSize(14)
+      .fillColor("#103e91")
+      .text(
+        `Salary Slip for the Month of ${new Date(
+          yearInt,
+          monthInt - 1
+        ).toLocaleString("default", { month: "long" })} ${year}`,
+        { align: "center" }
+      );
+
+    doc
+      .moveTo(50, doc.y + 5)
+      .lineTo(545, doc.y + 5)
+      .stroke("#b4c5e4");
+
+    y = doc.y + 14;
+
+    // --- Employee Details Box ---
+    doc.rect(50, y, 495, 70).stroke("#cfd8dc");
+    doc
+      .fontSize(11)
+      .fillColor("#0a2342")
+      .text("Employee Name:", 60, y + 10)
+      .font("DejaVu")
+      .fillColor("#000")
+      .text(user?.name || "-", 160, y + 10)
+
+      .font("DejaVu")
+      .fillColor("#0a2342")
+      .text("Employee ID:", 340, y + 10)
+      .font("DejaVu")
+      .fillColor("#000")
+      .text(user?.empId || "-", 435, y + 10)
+
+      .font("DejaVu")
+      .fillColor("#0a2342")
+      .text("Role:", 60, y + 30)
+      .font("DejaVu")
+      .fillColor("#000")
+      .text(user?.role || "-", 160, y + 30)
+
+      .font("DejaVu")
+      .fillColor("#0a2342")
+      .text("Generated On:", 340, y + 30)
+      .font("DejaVu")
+      .fillColor("#000")
+      .text(new Date().toLocaleDateString(), 435, y + 30)
+
+      .font("DejaVu")
+      .fillColor("#0a2342")
+      .text("Month:", 60, y + 50)
+      .font("DejaVu")
+      .fillColor("#000")
+      .text(`${month} / ${year}`, 160, y + 50);
+
+    y += 90;
+
+    // --- Table Header ---
+    const tableHeaders = [
+      "Date",
+      "Check-In",
+      "Check-Out",
+      "Late (min)",
+      "OT (min)",
+      "Late Ded. (₹)",
+      "OT Add. (₹)",
+      "Net Day (₹)",
+    ];
+    const colX = [60, 115, 180, 250, 310, 380, 450, 520];
+
+    doc.rect(55, y, 500, 25).fill("#1d417e");
+    doc.font("DejaVu").fontSize(9).fillColor("#fff");
+
+    tableHeaders.forEach((header, i) => {
+      doc.text(header, colX[i], y + 5);
+    });
+
+    y += 30;
+    doc.fillColor("#000").font("DejaVu").fontSize(8);
+
+    // --- Table Rows ---
+    let rowY = y;
+    reports.forEach((r) => {
+      doc
+        .text(new Date(r.createdAt).toLocaleDateString(), colX[0], rowY)
+        .text(r.checkInTime || "-", colX[1], rowY)
+        .text(r.checkOutTime || "-", colX[2], rowY)
+        .text(r.lateDuration?.toString() || "0", colX[3], rowY)
+        .text(r.otDuration?.toString() || "0", colX[4], rowY)
+        .text(`₹${(r.totalDeductionsAmount || 0).toFixed(2)}`, colX[5], rowY)
+        .text(`₹${(r.totalOtAmount || 0).toFixed(2)}`, colX[6], rowY)
+        .text(`₹${(r.netDaySalary || 0).toFixed(2)}`, colX[7], rowY);
+
+      rowY += 20;
+      if (rowY > 710) {
+        doc.addPage();
+        rowY = 55;
+      }
+    });
+
+    // --- Totals ---
+    const totalLateDeduction = reports
+      .reduce((acc, r) => acc + (r.totalDeductionsAmount || 0), 0)
+      .toFixed(2);
+    const totalOtAllowance = reports
+      .reduce((acc, r) => acc + (r.totalOtAmount || 0), 0)
+      .toFixed(2);
+    const totalNetSalary = reports
+      .reduce((acc, r) => acc + (r.netDaySalary || 0), 0)
+      .toFixed(2);
+
+    rowY += 10;
+    doc.moveTo(50, rowY).lineTo(545, rowY).stroke("#cfd8dc");
+    rowY += 15;
+
+    doc
+      .font("DejaVu")
+      .fontSize(11)
+      .fillColor("#034694")
+      .text("Total Late Deduction:", 60, rowY)
+      .font("DejaVu")
+      .fillColor("#000")
+      .text(`₹${totalLateDeduction}`, 195, rowY)
+
+      .font("DejaVu")
+      .fillColor("#034694")
+      .text("Total OT Allowance:", 330, rowY)
+      .font("DejaVu")
+      .fillColor("#000")
+      .text(`₹${totalOtAllowance}`, 470, rowY);
+
+    rowY += 18;
+    doc
+      .font("DejaVu")
+      .fillColor("#1b5e20")
+      .fontSize(12)
+      .text(`Net Salary Payable: ₹${totalNetSalary}`, 60, rowY);
+
+    // --- Footer ---
+    rowY += 40;
+    doc
+      .font("DejaVu")
+      .font("Helvetica-Oblique")
+      .fontSize(9)
+      .fillColor("#777")
+      .text(
+        "This is a system-generated salary slip. For queries, contact HR at above contact details.",
+        60,
+        rowY,
+        {
+          width: 480,
+        }
+      );
+
+    doc.end();
+  } catch (error) {
+    console.error("PDF export error: ", error);
+    res.status(500).json({ message: "Could not generate PDF", error });
   }
 };

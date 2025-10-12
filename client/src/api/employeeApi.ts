@@ -91,13 +91,16 @@ export async function downloadPayrollCsv(year: number, month: number) {
   return response.data; // You can use FileSaver.js in frontend to download
 }
 
-export async function downloadPayrollPdf(year: number, month: number) {
+export async function downloadPayrollPdf(year: number, month: number, userId: string) {
   const token = localStorage.getItem("token");
-  const response = await axios.get(`${API_BASE_URL}/reports/payroll-pdf/${year}/${month}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    responseType: "blob",
-  });
-  return response.data; // Use FileSaver.js as needed
+  const response = await axios.get(
+    `${API_BASE_URL}/reports/payroll-pdf/${year}/${month}/${userId}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      responseType: "blob",
+    }
+  );
+  return response.data;
 }
 
 export async function getDashboardReport(year: number, month: number) {

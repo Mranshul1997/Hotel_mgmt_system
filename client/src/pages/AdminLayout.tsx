@@ -23,7 +23,6 @@ const adminTabs = [
     label: "Biometric Settings",
     icon: <Fingerprint size={20} />,
   }, // New
-  
 ];
 
 const AdminLayout = () => {
@@ -50,14 +49,23 @@ const AdminLayout = () => {
     navigate("/auth");
   };
 
+  const redirect = () => {
+    navigate("/admin-dashboard");
+  };
   return (
     <div className="flex min-h-screen">
       {/* Sidebar with logo at top */}
       <nav className="bg-gray-900 w-64 h-screen fixed left-0 top-0 p-4 text-gray-300 flex flex-col z-30">
         {/* Logo section */}
         <div className="mb-8 flex items-center gap-3 justify-center">
-          <Fingerprint className="w-10 h-10 text-primary" />
-          <span className="text-xl font-bold text-white tracking-wide">
+          <Fingerprint
+            className="w-10 h-10 text-primary cursor-pointer"
+            onClick={redirect}
+          />
+          <span
+            className="text-xl font-bold text-white tracking-wide cursor-pointer"
+            onClick={redirect}
+          >
             BiometriQ
           </span>
         </div>

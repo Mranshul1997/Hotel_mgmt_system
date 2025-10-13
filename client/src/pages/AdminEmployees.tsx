@@ -7,6 +7,7 @@ import {
 } from "../api/employeeApi";
 import { listShifts } from "../api/shiftApi";
 import EmployeeReport from "./EmployeeReport";
+import { Edit, Trash2 } from "lucide-react";
 
 const roles = [
   "M.D. SIR",
@@ -40,6 +41,11 @@ const AdminEmployees = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const recordsPerPage = 8; // You can change this to 7 or whatever you want
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [employeeToDelete, setEmployeeToDelete] = useState<any>(null);
 
   // Fetch employees
   const fetchEmployees = async () => {
@@ -145,7 +151,6 @@ const AdminEmployees = () => {
 
   // Delete Employee handler
   const handleDeleteEmployee = async (emp: any) => {
-    if (!window.confirm(`Delete employee ${emp.name}?`)) return;
     try {
       await deleteEmployee(emp._id);
       fetchEmployees();
@@ -189,18 +194,23 @@ const AdminEmployees = () => {
                 <td className="p-3">{emp.shift?.name || emp.shift}</td>
                 <td className="p-3">{emp.biometric}</td>
                 <td className="p-3">{emp.salary}</td>
-                <td className="p-3 flex gap-2">
+                <td className="p-3 flex gap-3 items-center">
                   <button
-                    className="text-xs text-blue-400 underline"
                     onClick={() => handleShowEdit(emp)}
+                    aria-label="Edit employee"
+                    className="text-blue-400 hover:text-blue-600 transition"
                   >
-                    Edit
+                    <Edit size={18} />
                   </button>
                   <button
-                    className="text-xs text-red-400 underline"
-                    onClick={() => handleDeleteEmployee(emp)}
+                    onClick={() => {
+                      setEmployeeToDelete(emp);
+                      setShowDeleteModal(true);
+                    }}
+                    aria-label="Delete employee"
+                    className="text-red-400 hover:text-red-600 transition"
                   >
-                    Delete
+                    <Trash2 size={18} />
                   </button>
                 </td>
               </tr>
@@ -395,6 +405,35 @@ const AdminEmployees = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {showDeleteModal && employeeToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gray-800 rounded-lg shadow-lg p-6 max-w-sm w-full text-white">
+            <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
+            <p className="mb-6">
+              Are you sure you want to delete employee{" "}
+              <span className="font-bold">{employeeToDelete.name}</span>?
+            </p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 bg-gray-600 rounded hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  handleDeleteEmployee(employeeToDelete); // Call your delete handler
+                  setShowDeleteModal(false);
+                  setEmployeeToDelete(null);
+                }}
+                className="px-4 py-2 bg-red-600 rounded hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -77,6 +77,18 @@ const AdminPayroll = () => {
     0
   );
 
+  const filteredData = data.filter((emp) =>
+    emp.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredData.length / recordsPerPage);
+  const indexOfLastRecord = currentPage * recordsPerPage;
+  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
+  const currentRecords = filteredData.slice(
+    indexOfFirstRecord,
+    indexOfLastRecord
+  );
+
   return (
     <div className="max-w-5xl mx-auto">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
@@ -87,7 +99,7 @@ const AdminPayroll = () => {
             <input
               type="text"
               placeholder="Search by employee name..."
-              className="px-10 py- mt-6 rounded bg-gray-800 text-white border border-gray-700"
+              className="px-10 py-1 mt-6 rounded bg-gray-800 text-white border border-gray-700"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -148,14 +160,14 @@ const AdminPayroll = () => {
                   Loading...
                 </td>
               </tr>
-            ) : !Array.isArray(data) || data.length === 0 ? (
+            ) : filteredData.length === 0 ? (
               <tr>
                 <td colSpan={8} className="text-center p-4 text-gray-400">
                   No data found
                 </td>
               </tr>
             ) : (
-              data.map((rec, idx) => (
+              currentRecords.map((rec, idx) => (
                 <tr
                   key={rec.empId || rec.userId || rec._id || idx}
                   className="hover:bg-gray-800/30"
@@ -197,6 +209,40 @@ const AdminPayroll = () => {
             )}
           </tbody>
         </table>
+        {totalPages > 1 && (
+          <div className="flex justify-center space-x-2 mt-4">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 rounded bg-gray-700 disabled:opacity-50"
+            >
+              Prev
+            </button>
+            {[...Array(totalPages)].map((_, i) => {
+              const page = i + 1;
+              return (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`px-3 py-1 rounded ${
+                    currentPage === page
+                      ? "bg-primary text-white"
+                      : "bg-gray-700 text-gray-300"
+                  }`}
+                >
+                  {page}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 rounded bg-gray-700 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
       {/* Payroll summary cards */}
       <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">

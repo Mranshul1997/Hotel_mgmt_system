@@ -40,9 +40,6 @@ const AdminEmployees = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const recordsPerPage = 8; // You can change this to 7 or whatever you want
 
   // Fetch employees
   const fetchEmployees = async () => {
@@ -156,35 +153,11 @@ const AdminEmployees = () => {
       alert("Error deleting employee");
     }
   };
-  const filteredEmployees = employees.filter((emp: any) =>
-    emp.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const indexOfLastRecord = currentPage * recordsPerPage;
-  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
-  const currentRecords = filteredEmployees.slice(
-    indexOfFirstRecord,
-    indexOfLastRecord
-  );
-  const totalPages = Math.ceil(filteredEmployees.length / recordsPerPage);
 
   return (
     <div className="max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Manage Employees</h2>
-
-        <div className="mb-4 flex justify-end">
-          <input
-            type="text"
-            placeholder="Search by name..."
-            className="px-7 py-2 border rounded-xl bg-gray-700 text-white border-gray-700"
-            value={searchTerm}
-            onChange={(e) => {
-              setCurrentPage(1); // reset to page 1 on search
-              setSearchTerm(e.target.value);
-            }}
-          />
-        </div>
         <button
           className="bg-primary text-white font-semibold px-4 py-2 rounded-lg shadow"
           onClick={handleShowAdd}
@@ -192,7 +165,6 @@ const AdminEmployees = () => {
           + Add Employee
         </button>
       </div>
-
       <div className="overflow-x-auto bg-gray-900 rounded-xl shadow border border-blue-700/20">
         <table className="min-w-full divide-y divide-blue-700/50">
           <thead>
@@ -208,7 +180,7 @@ const AdminEmployees = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
-            {currentRecords.map((emp: any) => (
+            {employees.map((emp: any) => (
               <tr key={emp._id} className="hover:bg-gray-800/30">
                 <td className="p-3 font-mono">{emp.empId || emp._id}</td>
                 <td className="p-3">{emp.name}</td>
@@ -235,43 +207,6 @@ const AdminEmployees = () => {
             ))}
           </tbody>
         </table>
-        {totalPages > 1 && (
-          <div className="flex justify-center space-x-2 mt-4">
-            <button
-              className="px-3 py-1 bg-gray-700 rounded disabled:opacity-50"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(currentPage - 1)}
-            >
-              Prev
-            </button>
-
-            {[...Array(totalPages)].map((_, i) => {
-              const page = i + 1;
-              return (
-                <button
-                  key={page}
-                  className={`px-3 py-1 rounded ${
-                    currentPage === page
-                      ? "bg-primary text-white"
-                      : "bg-gray-700 text-gray-300"
-                  }`}
-                  onClick={() => setCurrentPage(page)}
-                >
-                  {page}
-                </button>
-              );
-            })}
-
-            <button
-              className="px-3 py-1 bg-gray-700 rounded disabled:opacity-50"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(currentPage + 1)}
-            >
-              Next
-            </button>
-          </div>
-        )}
-
         {loading && (
           <div className="text-center py-6 text-gray-400">Loading...</div>
         )}

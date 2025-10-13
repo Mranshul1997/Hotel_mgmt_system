@@ -10,6 +10,7 @@ import {
   exportPayrollPdf,
   exportUserPayrollPdf,
   exportUserPayrollCsv,
+  applyLeave,
 } from "../controllers/manageReportsController";
 
 const router = Router();
@@ -28,5 +29,6 @@ router.get("/payroll-csv/:year/:month", exportPayrollCsv);
 router.get('/payroll-csv/:year/:month/:userId', exportUserPayrollCsv);
 router.get("/payroll-pdf/:year/:month/:userId", exportUserPayrollPdf);
 router.get("/payroll-pdf/:year/:month", exportPayrollPdf);
+router.post("/apply-leave", applyLeave);
 
 export default router;

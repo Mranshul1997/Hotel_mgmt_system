@@ -12,19 +12,25 @@ export interface IManageReport extends Document {
   netDaySalary: number;
   createdAt: Date;
   updatedAt: Date;
+  applyLeave?: boolean;
+  leaveType?: "paid" | "unpaid";
+  executionDate: Date;
 }
 
 const ManageReportSchema = new Schema<IManageReport>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    checkInTime: { type: String, required: true },
+    checkInTime: { type: String },
     checkOutTime: { type: String },
     shiftTiming: { type: String },
     totalDeductionsAmount: { type: Number },
     totalOtAmount: { type: Number, default: 0 },
     lateDuration: { type: Number, default: 0 },
     otDuration: { type: Number, default: 0 },
-    netDaySalary: { type: Number }
+    netDaySalary: { type: Number },
+    applyLeave: { type: Boolean, default: false },
+    leaveType: { type: String, enum: ["paid", "unpaid"], default: null },
+    executionDate: { type: Date }
   },
   {
     timestamps: true

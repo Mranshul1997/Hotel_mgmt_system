@@ -566,6 +566,48 @@ export const exportPayrollCsv = async (req: Request, res: Response) => {
   }
 };
 
+export const exportUserPayrollCsv = async (req: Request, res: Response) => {
+  try {
+    const { year, month, userId } = req.params;
+    const yearInt = parseInt(year);
+    const monthInt = parseInt(month);
+
+    const startDate = new Date(yearInt, monthInt - 1, 1);
+    const endDate = new Date(yearInt, monthInt, 1);
+
+    // Fetch report data for the user in given month
+    const reports = await ManageReport.find({
+      userId: new mongoose.Types.ObjectId(userId),
+      createdAt: { $gte: startDate, $lt: endDate }
+    })
+      .select("-_id checkInTime checkOutTime lateDuration otDuration totalDeductionsAmount totalOtAmount netDaySalary createdAt")
+      .lean();
+
+    // Format data for CSV
+  const fields = [
+  { label: "Date", value: (row: any) => new Date(row.createdAt).toLocaleDateString() },
+  { label: "Check-In", value: "checkInTime" },
+  { label: "Check-Out", value: "checkOutTime" },
+  { label: "Late (min)", value: "lateDuration" },
+  { label: "OT (min)", value: "otDuration" },
+  { label: "Late Deduction (₹)", value: "totalDeductionsAmount" },
+  { label: "OT Addition (₹)", value: "totalOtAmount" },
+  { label: "Net Day Salary (₹)", value: "netDaySalary" }
+];
+
+    const json2csvParser = new Parser({ fields });
+    const csv = json2csvParser.parse(reports);
+
+    res.header("Content-Type", "text/csv");
+    res.attachment(`payroll_${userId}_${year}_${month}.csv`);
+    return res.send(csv);
+  } catch (error) {
+    console.error("User CSV export error: ", error);
+    res.status(500).json({ message: "Could not generate CSV", error });
+  }
+};
+
+
 export const exportPayrollPdf = async (req: Request, res: Response) => {
   try {
     const { year, month } = req.params;

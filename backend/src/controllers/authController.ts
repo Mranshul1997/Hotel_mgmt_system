@@ -4,9 +4,9 @@ import jwt from "jsonwebtoken";
 import AuthUser from "../models/AuthUser";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
-import { blacklistedTokens } from "../middleware/auth";
+
 const transporter = nodemailer.createTransport({
-  service: "Gmail", // e.g., Gmail, SendGrid
+  service: "Gmail",
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -20,13 +20,11 @@ export const forgotPassword = async (req: Request, res: Response) => {
     if (!user) return res.status(400).json({ message: "Email not found" });
 
     const resetToken = crypto.randomBytes(32).toString("hex");
-    // Set token and expiry. Store hashed token in DB for security if you want.
     user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour from now as Date
+    user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hr
     await user.save();
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: user.email,
@@ -40,6 +38,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 export const resetPassword = async (req: Request, res: Response) => {
   const { token, newPassword } = req.body;
   try {
@@ -54,7 +53,6 @@ export const resetPassword = async (req: Request, res: Response) => {
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
-
     res.json({ message: "Password reset successful" });
   } catch (error) {
     res.status(500).json({ message: "Server error" });
@@ -62,30 +60,20 @@ export const resetPassword = async (req: Request, res: Response) => {
 };
 
 export const login = async (req: Request, res: Response) => {
-  console.log("Login request body:", req.body);
   const { email, password } = req.body;
-  console.log("Login attempt with email:", email);
   try {
     const user = await AuthUser.findOne({ email });
-    if (!user) {
-      console.log("User not found");
+    if (!user)
       return res.status(400).json({ message: "Invalid credentials" });
-    }
-    console.log("User found:", user.email);
 
-    console.log("Logging in with email:", email, "password:", password);
-    console.log("Stored hash:", user.password);
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log("Password match:", isMatch);
     if (!isMatch)
       return res.status(400).json({ message: "Invalid credentials" });
 
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET as string,
-      {
-        expiresIn: "1d",
-      }
+      { expiresIn: "1d" }
     );
 
     res.json({
@@ -102,40 +90,7 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-export const logout = (req: Request, res: Response) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (token) {
-    blacklistedTokens.add(token);
-    res.json({ message: "Logged out successfully, token blacklisted" });
-  } else {
-    res.status(400).json({ message: "No token provided" });
-  }
+export const logout = (_req: Request, res: Response) => {
+  // For stateless JWT, logout is just client side token removal.
+  res.json({ message: "Logged out successfully" });
 };
-
-// export const getProfile = async (req: Request, res: Response) => {
-//   try {
-//     const userId = req.user.id;
-//     const user = await AuthUser.findById(userId).select("-password");
-//     if (!user) return res.status(404).json({ message: "User not found" });
-//     res.json(user);
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
-
-// export const updateProfile = async (req: Request, res: Response) => {
-//   try {
-//     const userId = req.user.id;
-//     const updates = req.body;
-//     const updatedUser = await AuthUser.findByIdAndUpdate(userId, updates, {
-//       new: true,
-//     }).select("-password");
-//     res.json(updatedUser);
-//   } catch (error) {
-//     res.status(500).json({ message: "Update failed" });
-//   }
-// };
-
-// export const someAdminOnlyHandler = (req: Request, res: Response) => {
-//   res.json({ message: "Admin dashboard accessed" });
-// };

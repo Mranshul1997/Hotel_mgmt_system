@@ -9,6 +9,7 @@ import {
   exportPayrollCsv,
   exportPayrollPdf,
   exportUserPayrollPdf,
+  exportUserPayrollCsv,
 } from "../controllers/manageReportsController";
 
 const router = Router();
@@ -24,6 +25,7 @@ router.post("/daily", getDailyReport);
 router.get("/payroll/:year/:month", getPayrollReport);
 router.get("/dashboard/:year/:month", dashboardReport);
 router.get("/payroll-csv/:year/:month", exportPayrollCsv);
+router.get('/payroll-csv/:year/:month/:userId', exportUserPayrollCsv);
 router.get("/payroll-pdf/:year/:month/:userId", exportUserPayrollPdf);
 router.get("/payroll-pdf/:year/:month", exportPayrollPdf);
 

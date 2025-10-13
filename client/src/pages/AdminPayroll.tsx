@@ -3,8 +3,18 @@ import { getPayrollReport, downloadPayrollCsv } from "../api/employeeApi";
 import EmployeeReport from "./EmployeeReport";
 
 const months = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 const currentYear = new Date().getFullYear();
@@ -17,6 +27,9 @@ const AdminPayroll = () => {
   const [loading, setLoading] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const recordsPerPage = 8; // Number of records per page
 
   useEffect(() => {
     const fetchPayroll = async () => {
@@ -68,7 +81,21 @@ const AdminPayroll = () => {
     <div className="max-w-5xl mx-auto">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
         <h2 className="text-2xl font-bold">Payroll Management</h2>
+
         <div className="flex gap-2 items-center">
+          <div className="mb-4 flex justify-end px-2">
+            <input
+              type="text"
+              placeholder="Search by employee name..."
+              className="px-10 py- mt-6 rounded bg-gray-800 text-white border border-gray-700"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); // reset page on search change
+              }}
+            />
+          </div>
+
           <select
             className="bg-gray-800 border border-gray-700 text-white rounded px-2 py-1"
             value={month}
@@ -129,7 +156,10 @@ const AdminPayroll = () => {
               </tr>
             ) : (
               data.map((rec, idx) => (
-                <tr key={rec.empId || rec.userId || rec._id || idx} className="hover:bg-gray-800/30">
+                <tr
+                  key={rec.empId || rec.userId || rec._id || idx}
+                  className="hover:bg-gray-800/30"
+                >
                   <td className="p-3 font-mono">
                     {rec.empId || rec.employeeId || rec.userId || rec._id || ""}
                   </td>

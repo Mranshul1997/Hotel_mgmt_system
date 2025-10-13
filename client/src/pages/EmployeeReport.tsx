@@ -3,6 +3,7 @@ import {
   getDailyReport,
   downloadPayrollCsv,
   downloadPayrollPdf,
+  downloadUserPayrollCsv,
 } from "../api/employeeApi";
 import dayjs from "dayjs";
 
@@ -118,14 +119,15 @@ const EmployeeReport = ({ employee, onClose }) => {
     }
     const userId = employee.userId || employee._id;
     if (exportType === "csv") {
-      const blob = await downloadPayrollCsv(yearArg, monthArg, userId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${employee.name}_attendance_${selectedMonth}.csv`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    }
+  const blob = await downloadUserPayrollCsv(yearArg, monthArg, userId);
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${employee.name}_attendance_${selectedMonth}.csv`;
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+
     if (exportType === "pdf") {
       const blob = await downloadPayrollPdf(yearArg, monthArg, userId);
       const url = window.URL.createObjectURL(blob);

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { getPayrollReport, downloadPayrollCsv } from "../api/employeeApi";
 import EmployeeReport from "./EmployeeReport";
+import { useDispatch } from "react-redux";
+import { setTotalDeductions } from "../store/payrollSlice";
 
 const months = [
   "January",
@@ -48,6 +50,33 @@ const AdminPayroll = () => {
     };
     fetchPayroll();
   }, [month, year]);
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    const fetchPayroll = async () => {
+      setLoading(true);
+      try {
+        const res = await getPayrollReport(year, month);
+        if (res && Array.isArray(res.users)) {
+          setData(res.users);
+          // Calculate and dispatch total deductions
+          const totalDeductions = res.users.reduce(
+            (sum, rec) => sum + (rec.deductionAmount ?? 0),
+            0
+          );
+          dispatch(setTotalDeductions(totalDeductions));
+        } else {
+          setData([]);
+          dispatch(setTotalDeductions(0));
+        }
+      } catch {
+        setData([]);
+        dispatch(setTotalDeductions(0));
+      }
+      setLoading(false);
+    };
+    fetchPayroll();
+  }, [month, year, dispatch]);
 
   // Download CSV handler
   const handleDownloadCsv = async () => {

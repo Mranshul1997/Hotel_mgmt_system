@@ -11,17 +11,31 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-
+import { useSelector } from "react-redux";
+import type { RootState } from "../store";
 const DashboardOverview = () => {
   const [stats, setStats] = useState([
     { label: "Total Employees", value: 0, color: "#60a5fa", icon: <Users /> },
-    { label: "Present Today", value: 0, color: "#10b981", icon: <Fingerprint /> },
+    {
+      label: "Present Today",
+      value: 0,
+      color: "#10b981",
+      icon: <Fingerprint />,
+    },
     { label: "On Leave", value: 0, color: "#facc15", icon: <Clock /> },
-    { label: "Shift Violations", value: 0, color: "#a78bfa", icon: <DollarSign /> },
+    {
+      label: "Shift Violations",
+      value: 0,
+      color: "#a78bfa",
+      icon: <DollarSign />,
+    },
   ]);
   const [attendanceTrend, setAttendanceTrend] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const totalDeductions = useSelector(
+    (state: RootState) => state.payroll.totalDeductions
+  );
 
   useEffect(() => {
     // Get user role from localStorage or your auth provider
@@ -44,9 +58,7 @@ const DashboardOverview = () => {
       const month = now.getMonth() + 1;
       try {
         const res = await getDashboardReport(year, month);
-        console.log(res,"logoogogogogo")
 
-        // Prepare stats array with Total Savings if user is admin
         const baseStats = [
           {
             label: "Total Employees",
@@ -63,7 +75,8 @@ const DashboardOverview = () => {
           {
             label: "On Leave",
             value:
-              (res.todaySummary?.totalEmployees ?? 0) - (res.todaySummary?.presentToday ?? 0),
+              (res.todaySummary?.totalEmployees ?? 0) -
+              (res.todaySummary?.presentToday ?? 0),
             color: "#facc15",
             icon: <Clock />,
           },
@@ -73,16 +86,13 @@ const DashboardOverview = () => {
             color: "#a78bfa",
             icon: <DollarSign />,
           },
-        ];
-
-        if (userRole === "admin") {
-          baseStats.push({
+          {
             label: "Total Savings",
-            value: res.todaySummary?.totalSavings ?? 0,
-            color: "#22c55e", // greenish
+            value: totalDeductions, // Show the Redux store value here
+            color: "#22c55e",
             icon: <DollarSign />,
-          });
-        }
+          },
+        ];
 
         setStats(baseStats);
 
@@ -90,16 +100,38 @@ const DashboardOverview = () => {
           (res.monthlySummary || []).map((d) => ({
             date: `Day ${d.day}`,
             present: d.presentCount,
-            leave: ((res.todaySummary?.totalEmployees ?? 0) - d.presentCount) || 0,
+            leave:
+              (res.todaySummary?.totalEmployees ?? 0) - d.presentCount || 0,
             ot: d.overtimeCount,
           }))
         );
       } catch {
         setStats([
-          { label: "Total Employees", value: 0, color: "#60a5fa", icon: <Users /> },
-          { label: "Present Today", value: 0, color: "#10b981", icon: <Fingerprint /> },
+          {
+            label: "Total Employees",
+            value: 0,
+            color: "#60a5fa",
+            icon: <Users />,
+          },
+          {
+            label: "Present Today",
+            value: 0,
+            color: "#10b981",
+            icon: <Fingerprint />,
+          },
           { label: "On Leave", value: 0, color: "#facc15", icon: <Clock /> },
-          { label: "Shift Violations", value: 0, color: "#a78bfa", icon: <DollarSign /> },
+          {
+            label: "Shift Violations",
+            value: 0,
+            color: "#a78bfa",
+            icon: <DollarSign />,
+          },
+          {
+            label: "Total Savings",
+            value: totalDeductions,
+            color: "#22c55e",
+            icon: <DollarSign />,
+          },
         ]);
         setAttendanceTrend([]);
       }
@@ -108,7 +140,7 @@ const DashboardOverview = () => {
     if (userRole) {
       loadData();
     }
-  }, [userRole]);
+  }, [userRole, totalDeductions]);
 
   return (
     <div>
@@ -123,7 +155,10 @@ const DashboardOverview = () => {
             <div className="mb-2 text-xl" style={{ color: stat.color }}>
               {stat.icon}
             </div>
-            <div className="text-4xl font-extrabold" style={{ color: stat.color }}>
+            <div
+              className="text-4xl font-extrabold"
+              style={{ color: stat.color }}
+            >
               {stat.value}
             </div>
             <div className="text-md text-gray-300 mt-2">{stat.label}</div>

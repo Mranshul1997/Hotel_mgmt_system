@@ -6,6 +6,8 @@ import {
   downloadUserPayrollCsv,
 } from "../api/employeeApi";
 import dayjs from "dayjs";
+import { applyLeave } from "../api/employeeApi";
+import ApplyLeaveModal from "./ApplyLeaveModal";
 
 // Helper: format number to INR, 2 decimals
 function toCurrency(val) {
@@ -51,22 +53,21 @@ const EmployeeReport = ({ employee, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [exportType, setExportType] = useState("csv");
+  const [leaveModal, setLeaveModal] = useState({ open: false, reportId: null });
+  const [leaveLoading, setLeaveLoading] = useState(false);
 
   useEffect(() => {
     const fetchAttendance = async () => {
       setLoading(true);
       try {
         const now = new Date();
-        let monthArg, yearArg;
-        if (selectedMonth === "all" || attendance.length === 0) {
-          // fallback to current
-          const now = new Date();
-          monthArg = now.getMonth() + 1;
-          yearArg = now.getFullYear();
-        } else {
-          [yearArg, monthArg] = selectedMonth.split("-");
-          monthArg = Number(monthArg);
-          yearArg = Number(yearArg);
+        let monthArg = now.getMonth() + 1;
+        let yearArg = now.getFullYear();
+
+        if (selectedMonth && selectedMonth !== "all") {
+          const parts = selectedMonth.split("-");
+          yearArg = Number(parts[0]);
+          monthArg = Number(parts[1]);
         }
 
         const res = await getDailyReport({
@@ -119,14 +120,14 @@ const EmployeeReport = ({ employee, onClose }) => {
     }
     const userId = employee.userId || employee._id;
     if (exportType === "csv") {
-  const blob = await downloadUserPayrollCsv(yearArg, monthArg, userId);
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${employee.name}_attendance_${selectedMonth}.csv`;
-  a.click();
-  window.URL.revokeObjectURL(url);
-}
+      const blob = await downloadUserPayrollCsv(yearArg, monthArg, userId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${employee.name}_attendance_${selectedMonth}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
 
     if (exportType === "pdf") {
       const blob = await downloadPayrollPdf(yearArg, monthArg, userId);
@@ -249,18 +250,21 @@ const EmployeeReport = ({ employee, onClose }) => {
                 <th className="p-3 bg-gray-900 sticky top-0 z-10">
                   Net Day Salary (₹)
                 </th>
+                <th className="p-3 bg-gray-900 sticky top-0 z-10">
+                  Apply for leave
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="text-center text-gray-400">
+                  <td colSpan={9} className="text-center text-gray-400">
                     Loading...
                   </td>
                 </tr>
               ) : filteredAttendance.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center text-gray-400">
+                  <td colSpan={9} className="text-center text-gray-400">
                     No attendance records found
                   </td>
                 </tr>
@@ -268,9 +272,9 @@ const EmployeeReport = ({ employee, onClose }) => {
                 filteredAttendance.map((rec, idx) => (
                   <tr key={rec._id || idx} className="hover:bg-gray-800/30">
                     <td className="p-3 font-mono">
-                      {dayjs(rec.createdAt).format("YYYY-MM-DD")}
+                      {dayjs(rec.executionDate).format("YYYY-MM-DD")}
                     </td>
-                    <td className="p-3">{rec.checkInTime}</td>
+                    <td className="p-3">{rec.checkInTime || "-"}</td>
                     <td className="p-3">{rec.checkOutTime || "-"}</td>
                     <td className="p-3">{rec.lateDuration || 0}</td>
                     <td className="p-3">{rec.otDuration || 0}</td>
@@ -283,11 +287,65 @@ const EmployeeReport = ({ employee, onClose }) => {
                     <td className="p-3 font-bold text-blue-400">
                       {toCurrency(rec.netDaySalary)}
                     </td>
+                    {!rec.checkInTime && !rec.applyLeave ? (
+                      <td className="p-3">
+                        <button
+                          className="px-3 py-1 bg-yellow-500 rounded text-black font-semibold text-sm"
+                          onClick={() =>
+                            setLeaveModal({ open: true, reportId: rec._id })
+                          }
+                        >
+                          Apply Leave
+                        </button>
+                      </td>
+                    ) : rec.applyLeave ? (
+                      <td className="p-3 text-sm text-cyan-300 font-semibold">
+                        {rec.leaveType === "paid"
+                          ? "Paid Leave"
+                          : "Unpaid Leave"}
+                      </td>
+                    ) : (
+                      <td className="p-3">-</td>
+                    )}
                   </tr>
                 ))
               )}
             </tbody>
           </table>
+          {leaveModal.open && (
+            <ApplyLeaveModal
+              onClose={() => setLeaveModal({ open: false, reportId: null })}
+              loading={leaveLoading}
+              onSubmit={async ({ leaveType, reason }) => {
+                setLeaveLoading(true);
+                try {
+                  await applyLeave(leaveModal.reportId, leaveType, reason);
+                  const now = new Date();
+                  let monthArg = now.getMonth() + 1;
+                  let yearArg = now.getFullYear();
+
+                  if (selectedMonth && selectedMonth !== "all") {
+                    const parts = selectedMonth.split("-");
+                    yearArg = Number(parts[0]);
+                    monthArg = Number(parts[1]);
+                  }
+
+                  const res = await getDailyReport({
+                    userId: employee.userId || employee._id,
+                    month: monthArg,
+                    year: yearArg,
+                  });
+
+                  setAttendance(res?.dailyRecords || []);
+                  setLeaveModal({ open: false, reportId: null });
+                } catch {
+                  alert("Failed to apply leave");
+                } finally {
+                  setLeaveLoading(false);
+                }
+              }}
+            />
+          )}
         </div>
 
         {/* Summary Section */}

@@ -13,7 +13,7 @@ const PDFDocument = require("pdfkit");
  */
 export const applyLeave = async (req: Request, res: Response) => {
   try {
-    const { reportId, leaveType } = req.body;
+    const { reportId, leaveType, reason } = req.body;
 
     if (!reportId || !leaveType) {
       return res.status(400).json({
@@ -24,18 +24,22 @@ export const applyLeave = async (req: Request, res: Response) => {
 
     const report = await ManageReport.findById(reportId);
     if (!report) {
-      return res.status(404).json({ success: false, message: "ManageReport not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "ManageReport not found" });
     }
 
-  const user = await User.findById(report.userId);
+    const user = await User.findById(report.userId);
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found for this report" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found for this report" });
     }
 
     // Mark leave
     report.applyLeave = true;
     report.leaveType = leaveType;
-
+    report.leaveReason = reason;
     if (leaveType === "unpaid") {
       report.totalDeductionsAmount = user.perDaySalary;
     } else if (leaveType === "paid") {
@@ -157,10 +161,14 @@ export const checkoutUser = async (req: Request, res: Response) => {
     });
 
     if (!report)
-      return res.status(404).json({ message: "No existing check-in report found" });
+      return res
+        .status(404)
+        .json({ message: "No existing check-in report found" });
 
     // OT calculation
-    const shiftCheckoutWithBuffer = moment.tz(shift.checkOutTime, "HH:mm", "Asia/Kolkata").add(30, "minutes");
+    const shiftCheckoutWithBuffer = moment
+      .tz(shift.checkOutTime, "HH:mm", "Asia/Kolkata")
+      .add(30, "minutes");
     const actualCheckout = moment.tz(checkOutTime, "HH:mm", "Asia/Kolkata");
 
     let otDuration = 0;
@@ -170,7 +178,8 @@ export const checkoutUser = async (req: Request, res: Response) => {
       otAmount = otDuration * (user.perMinuteSalary || 0);
     }
 
-    const netDaySalary = (user.perDaySalary || 0) - (report.totalDeductionsAmount || 0) + otAmount;
+    const netDaySalary =
+      (user.perDaySalary || 0) - (report.totalDeductionsAmount || 0) + otAmount;
 
     // Update report
     report.checkOutTime = checkOutTime;
@@ -180,7 +189,9 @@ export const checkoutUser = async (req: Request, res: Response) => {
 
     await report.save();
 
-    return res.status(200).json({ message: "Check-out updated successfully", data: report });
+    return res
+      .status(200)
+      .json({ message: "Check-out updated successfully", data: report });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }
@@ -193,14 +204,35 @@ export const getMonthlyReport = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "userId, month and year are required." });
     }
 
+    const yearNum = Number(year);
+    const monthNum = Number(month);
+
+    if (
+      isNaN(yearNum) ||
+      isNaN(monthNum) ||
+      monthNum < 1 ||
+      monthNum > 12
+    ) {
+      return res.status(400).json({ message: "Invalid month or year" });
+    }
+
     // Month range in IST
-    const start = moment.tz({ year, month: month - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
-    const end = moment.tz({ year, month: month - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    const start = moment
+      .tz({ year: yearNum, month: monthNum - 1, day: 1 }, "Asia/Kolkata")
+      .startOf("day")
+      .toDate();
+    const end = moment
+      .tz({ year: yearNum, month: monthNum - 1, day: 1 }, "Asia/Kolkata")
+      .endOf("month")
+      .endOf("day")
+      .toDate();
 
     const records = await ManageReport.find({
       userId: new mongoose.Types.ObjectId(userId),
       executionDate: { $gte: start, $lte: end },
-    }).sort({ executionDate: 1 }).lean();
+    })
+      .sort({ executionDate: 1 })
+      .lean();
 
     // Add showApply flag
     const todayIST = moment.tz("Asia/Kolkata").startOf("day");
@@ -253,20 +285,35 @@ export const getMonthlyReport = async (req: Request, res: Response) => {
     return res.status(500).json({ message: error.message });
   }
 };
-
-
 export const getDailyReport = async (req: Request, res: Response) => {
   try {
     const { userId, month, year } = req.body;
     if (!userId || !month || !year) {
-      return res
-        .status(400)
-        .json({ message: "userId, month and year are required." });
+      return res.status(400).json({ message: "userId, month and year are required." });
+    }
+
+    const yearNum = Number(year);
+    const monthNum = Number(month);
+
+    if (
+      isNaN(yearNum) ||
+      isNaN(monthNum) ||
+      monthNum < 1 ||
+      monthNum > 12
+    ) {
+      return res.status(400).json({ message: "Invalid month or year" });
     }
 
     // Step 1: Calculate month start and end in IST
-    const start = moment.tz({ year, month: month - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
-    const end = moment.tz({ year, month: month - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    const start = moment
+      .tz({ year: yearNum, month: monthNum - 1, day: 1 }, "Asia/Kolkata")
+      .startOf("day")
+      .toDate();
+    const end = moment
+      .tz({ year: yearNum, month: monthNum - 1, day: 1 }, "Asia/Kolkata")
+      .endOf("month")
+      .endOf("day")
+      .toDate();
 
     // Step 2: Fetch all daily records
     const dailyRecords = await ManageReport.find({
@@ -331,6 +378,7 @@ export const getDailyReport = async (req: Request, res: Response) => {
   }
 };
 
+
 export const getPayrollReport = async (req: Request, res: Response) => {
   try {
     const { year, month } = req.params;
@@ -338,8 +386,15 @@ export const getPayrollReport = async (req: Request, res: Response) => {
     const monthInt = parseInt(month);
 
     // Month range in IST
-    const startDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
-    const endDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    const startDate = moment
+      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
+      .startOf("day")
+      .toDate();
+    const endDate = moment
+      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
+      .endOf("month")
+      .endOf("day")
+      .toDate();
 
     const monthlyReport = await ManageReport.aggregate([
       { $match: { executionDate: { $gte: startDate, $lte: endDate } } },
@@ -380,7 +435,15 @@ export const getPayrollReport = async (req: Request, res: Response) => {
           totalNetSalary: { $sum: "$netSalary" },
         },
       },
-      { $project: { _id: 0, users: 1, totaldeducationAmount: 1, totalOTAmount: 1, totalNetSalary: 1 } },
+      {
+        $project: {
+          _id: 0,
+          users: 1,
+          totaldeducationAmount: 1,
+          totalOTAmount: 1,
+          totalNetSalary: 1,
+        },
+      },
     ]);
 
     res.status(200).json(monthlyReport[0] || { users: [], totals: {} });
@@ -396,8 +459,15 @@ export const dashboardReport = async (req: Request, res: Response) => {
     const yearInt = parseInt(year);
     const monthInt = parseInt(month);
 
-    const startOfMonth = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
-    const endOfMonth = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    const startOfMonth = moment
+      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
+      .startOf("day")
+      .toDate();
+    const endOfMonth = moment
+      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
+      .endOf("month")
+      .endOf("day")
+      .toDate();
 
     const todayStart = moment.tz("Asia/Kolkata").startOf("day").toDate();
     const todayEnd = moment.tz("Asia/Kolkata").endOf("day").toDate();
@@ -426,17 +496,32 @@ export const dashboardReport = async (req: Request, res: Response) => {
           $group: {
             _id: { $dayOfMonth: "$executionDate" },
             presentCount: { $sum: 1 },
-            shiftViolations: { $sum: { $cond: [{ $gt: ["$totalDeductionsAmount", 0] }, 1, 0] } },
-            overtimeCount: { $sum: { $cond: [{ $gt: ["$totalOtAmount", 0] }, 1, 0] } },
+            shiftViolations: {
+              $sum: { $cond: [{ $gt: ["$totalDeductionsAmount", 0] }, 1, 0] },
+            },
+            overtimeCount: {
+              $sum: { $cond: [{ $gt: ["$totalOtAmount", 0] }, 1, 0] },
+            },
           },
         },
         { $sort: { _id: 1 } },
-        { $project: { _id: 0, day: "$_id", presentCount: 1, shiftViolations: 1, overtimeCount: 1 } },
+        {
+          $project: {
+            _id: 0,
+            day: "$_id",
+            presentCount: 1,
+            shiftViolations: 1,
+            overtimeCount: 1,
+          },
+        },
       ]);
       return monthlyStats;
     })();
 
-    const [todaySummary, monthlySummary] = await Promise.all([todaySummaryPromise, monthlySummaryPromise]);
+    const [todaySummary, monthlySummary] = await Promise.all([
+      todaySummaryPromise,
+      monthlySummaryPromise,
+    ]);
 
     res.status(200).json({ todaySummary, monthlySummary });
   } catch (error) {
@@ -451,8 +536,15 @@ export const exportPayrollCsv = async (req: Request, res: Response) => {
     const yearInt = parseInt(year);
     const monthInt = parseInt(month);
 
-    const startDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
-    const endDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    const startDate = moment
+      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
+      .startOf("day")
+      .toDate();
+    const endDate = moment
+      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
+      .endOf("month")
+      .endOf("day")
+      .toDate();
 
     const monthlyReport = await ManageReport.aggregate([
       { $match: { executionDate: { $gte: startDate, $lte: endDate } } },
@@ -464,7 +556,14 @@ export const exportPayrollCsv = async (req: Request, res: Response) => {
           netSalary: { $sum: "$netDaySalary" },
         },
       },
-      { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "userDetails" } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "userDetails",
+        },
+      },
       { $unwind: { path: "$userDetails", preserveNullAndEmptyArrays: true } },
       {
         $project: {
@@ -506,18 +605,31 @@ export const exportUserPayrollCsv = async (req: Request, res: Response) => {
     const yearInt = parseInt(year);
     const monthInt = parseInt(month);
 
-    const startDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
-    const endDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    const startDate = moment
+      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
+      .startOf("day")
+      .toDate();
+    const endDate = moment
+      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
+      .endOf("month")
+      .endOf("day")
+      .toDate();
 
     const reports = await ManageReport.find({
       userId: new mongoose.Types.ObjectId(userId),
       executionDate: { $gte: startDate, $lte: endDate },
     })
-      .select("-_id checkInTime checkOutTime lateDuration otDuration totalDeductionsAmount totalOtAmount netDaySalary executionDate")
+      .select(
+        "-_id checkInTime checkOutTime lateDuration otDuration totalDeductionsAmount totalOtAmount netDaySalary executionDate"
+      )
       .lean();
 
     const fields = [
-      { label: "Date", value: (row: any) => moment(row.executionDate).tz("Asia/Kolkata").format("DD/MM/YYYY") },
+      {
+        label: "Date",
+        value: (row: any) =>
+          moment(row.executionDate).tz("Asia/Kolkata").format("DD/MM/YYYY"),
+      },
       { label: "Check-In", value: "checkInTime" },
       { label: "Check-Out", value: "checkOutTime" },
       { label: "Late (min)", value: "lateDuration" },
@@ -545,8 +657,15 @@ export const exportPayrollPdf = async (req: Request, res: Response) => {
     const yearInt = parseInt(year);
     const monthInt = parseInt(month);
 
-    const startDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
-    const endDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    const startDate = moment
+      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
+      .startOf("day")
+      .toDate();
+    const endDate = moment
+      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
+      .endOf("month")
+      .endOf("day")
+      .toDate();
 
     const monthlyReport = await ManageReport.aggregate([
       { $match: { executionDate: { $gte: startDate, $lte: endDate } } },
@@ -558,7 +677,14 @@ export const exportPayrollPdf = async (req: Request, res: Response) => {
           netSalary: { $sum: "$netDaySalary" },
         },
       },
-      { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "userDetails" } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "userDetails",
+        },
+      },
       { $unwind: { path: "$userDetails", preserveNullAndEmptyArrays: true } },
       {
         $project: {
@@ -575,16 +701,31 @@ export const exportPayrollPdf = async (req: Request, res: Response) => {
 
     const doc = new PDFDocument({ margin: 30, size: "A4" });
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=payroll_report_${year}_${month}.pdf`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=payroll_report_${year}_${month}.pdf`
+    );
     doc.pipe(res);
 
-    doc.fontSize(18).text(`Payroll Report - ${month}/${year}`, { align: "center" }).moveDown();
+    doc
+      .fontSize(18)
+      .text(`Payroll Report - ${month}/${year}`, { align: "center" })
+      .moveDown();
 
-    doc.fontSize(13).text("EmpID   Name             Role        Salary    OT     Late Deduction   Net Pay").moveDown(0.2);
+    doc
+      .fontSize(13)
+      .text(
+        "EmpID   Name             Role        Salary    OT     Late Deduction   Net Pay"
+      )
+      .moveDown(0.2);
 
     monthlyReport.forEach((emp) => {
       doc.text(
-        `${emp.userId || ""}    ${emp.name || "-"}      ${emp.role || "-"}     ${emp.salary || 0}     ${emp.oTAmount || 0}      ${emp.deductionAmount || 0}         ${emp.netSalary || 0}`
+        `${emp.userId || ""}    ${emp.name || "-"}      ${
+          emp.role || "-"
+        }     ${emp.salary || 0}     ${emp.oTAmount || 0}      ${
+          emp.deductionAmount || 0
+        }         ${emp.netSalary || 0}`
       );
     });
 
@@ -602,8 +743,15 @@ export const exportUserPayrollPdf = async (req: Request, res: Response) => {
     const monthInt = parseInt(month);
 
     // IST-aware date range
-    const startDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
-    const endDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    const startDate = moment
+      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
+      .startOf("day")
+      .toDate();
+    const endDate = moment
+      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
+      .endOf("month")
+      .endOf("day")
+      .toDate();
 
     const reports = await ManageReport.find({
       userId: new mongoose.Types.ObjectId(userId),
@@ -622,7 +770,9 @@ export const exportUserPayrollPdf = async (req: Request, res: Response) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=SalarySlip_${user?.name || userId}_${year}-${month}.pdf`
+      `attachment; filename=SalarySlip_${
+        user?.name || userId
+      }_${year}-${month}.pdf`
     );
     doc.pipe(res);
 
@@ -639,30 +789,71 @@ export const exportUserPayrollPdf = async (req: Request, res: Response) => {
     }
 
     // Header
-    doc.font("DejaVu").fontSize(20).fillColor("#0a2342").text("Hotel Dixit Palace", { align: "center", underline: true });
-    doc.fontSize(11).fillColor("#333").text("NH 44, Jhansi Road, Datia (M.P.)", { align: "center" })
-       .text("Contact: 059825465 | Email: dixitpalace@datia.com", { align: "center" });
+    doc
+      .font("DejaVu")
+      .fontSize(20)
+      .fillColor("#0a2342")
+      .text("Hotel Dixit Palace", { align: "center", underline: true });
+    doc
+      .fontSize(11)
+      .fillColor("#333")
+      .text("NH 44, Jhansi Road, Datia (M.P.)", { align: "center" })
+      .text("Contact: 059825465 | Email: dixitpalace@datia.com", {
+        align: "center",
+      });
 
-    doc.moveDown(0.5)
-       .fontSize(14).fillColor("#103e91")
-       .text(`Salary Slip for ${moment(startDate).format("MMMM YYYY")}`, { align: "center" });
+    doc
+      .moveDown(0.5)
+      .fontSize(14)
+      .fillColor("#103e91")
+      .text(`Salary Slip for ${moment(startDate).format("MMMM YYYY")}`, {
+        align: "center",
+      });
 
-    doc.moveTo(50, doc.y + 5).lineTo(545, doc.y + 5).stroke("#b4c5e4");
+    doc
+      .moveTo(50, doc.y + 5)
+      .lineTo(545, doc.y + 5)
+      .stroke("#b4c5e4");
     let y = doc.y + 14;
 
     // Employee details
     doc.rect(50, y, 495, 70).stroke("#cfd8dc");
-    doc.fontSize(11).fillColor("#0a2342")
-       .text("Employee Name:", 60, y + 10).fillColor("#000").text(user?.name || "-", 160, y + 10)
-       .fillColor("#0a2342").text("Employee ID:", 340, y + 10).fillColor("#000").text(user?.empId || "-", 435, y + 10)
-       .fillColor("#0a2342").text("Role:", 60, y + 30).fillColor("#000").text(user?.role || "-", 160, y + 30)
-       .fillColor("#0a2342").text("Generated On:", 340, y + 30).fillColor("#000").text(moment().tz("Asia/Kolkata").format("DD/MM/YYYY"), 435, y + 30)
-       .fillColor("#0a2342").text("Month:", 60, y + 50).fillColor("#000").text(`${month} / ${year}`, 160, y + 50);
+    doc
+      .fontSize(11)
+      .fillColor("#0a2342")
+      .text("Employee Name:", 60, y + 10)
+      .fillColor("#000")
+      .text(user?.name || "-", 160, y + 10)
+      .fillColor("#0a2342")
+      .text("Employee ID:", 340, y + 10)
+      .fillColor("#000")
+      .text(user?.empId || "-", 435, y + 10)
+      .fillColor("#0a2342")
+      .text("Role:", 60, y + 30)
+      .fillColor("#000")
+      .text(user?.role || "-", 160, y + 30)
+      .fillColor("#0a2342")
+      .text("Generated On:", 340, y + 30)
+      .fillColor("#000")
+      .text(moment().tz("Asia/Kolkata").format("DD/MM/YYYY"), 435, y + 30)
+      .fillColor("#0a2342")
+      .text("Month:", 60, y + 50)
+      .fillColor("#000")
+      .text(`${month} / ${year}`, 160, y + 50);
 
     y += 90;
 
     // Table header
-    const headers = ["Date", "Check-In", "Check-Out", "Late (min)", "OT (min)", "Late Ded. (₹)", "OT Add. (₹)", "Net Day (₹)"];
+    const headers = [
+      "Date",
+      "Check-In",
+      "Check-Out",
+      "Late (min)",
+      "OT (min)",
+      "Late Ded. (₹)",
+      "OT Add. (₹)",
+      "Net Day (₹)",
+    ];
     const colX = [60, 115, 180, 250, 310, 380, 450, 520];
 
     doc.rect(55, y, 500, 25).fill("#1d417e");
@@ -675,14 +866,19 @@ export const exportUserPayrollPdf = async (req: Request, res: Response) => {
     // Table rows
     let rowY = y;
     reports.forEach((r) => {
-      doc.text(moment(r.createdAt).tz("Asia/Kolkata").format("DD/MM/YYYY"), colX[0], rowY)
-         .text(r.checkInTime || "-", colX[1], rowY)
-         .text(r.checkOutTime || "-", colX[2], rowY)
-         .text(r.lateDuration?.toString() || "0", colX[3], rowY)
-         .text(r.otDuration?.toString() || "0", colX[4], rowY)
-         .text(`₹${(r.totalDeductionsAmount || 0).toFixed(2)}`, colX[5], rowY)
-         .text(`₹${(r.totalOtAmount || 0).toFixed(2)}`, colX[6])
-         .text(`₹${(r.netDaySalary || 0).toFixed(2)}`, colX[7], rowY);
+      doc
+        .text(
+          moment(r.createdAt).tz("Asia/Kolkata").format("DD/MM/YYYY"),
+          colX[0],
+          rowY
+        )
+        .text(r.checkInTime || "-", colX[1], rowY)
+        .text(r.checkOutTime || "-", colX[2], rowY)
+        .text(r.lateDuration?.toString() || "0", colX[3], rowY)
+        .text(r.otDuration?.toString() || "0", colX[4], rowY)
+        .text(`₹${(r.totalDeductionsAmount || 0).toFixed(2)}`, colX[5], rowY)
+        .text(`₹${(r.totalOtAmount || 0).toFixed(2)}`, colX[6])
+        .text(`₹${(r.netDaySalary || 0).toFixed(2)}`, colX[7], rowY);
 
       rowY += 20;
       if (rowY > 710) {
@@ -692,25 +888,49 @@ export const exportUserPayrollPdf = async (req: Request, res: Response) => {
     });
 
     // Totals
-    const totalLateDeduction = reports.reduce((acc, r) => acc + (r.totalDeductionsAmount || 0), 0).toFixed(2);
-    const totalOtAllowance = reports.reduce((acc, r) => acc + (r.totalOtAmount || 0), 0).toFixed(2);
-    const totalNetSalary = reports.reduce((acc, r) => acc + (r.netDaySalary || 0), 0).toFixed(2);
+    const totalLateDeduction = reports
+      .reduce((acc, r) => acc + (r.totalDeductionsAmount || 0), 0)
+      .toFixed(2);
+    const totalOtAllowance = reports
+      .reduce((acc, r) => acc + (r.totalOtAmount || 0), 0)
+      .toFixed(2);
+    const totalNetSalary = reports
+      .reduce((acc, r) => acc + (r.netDaySalary || 0), 0)
+      .toFixed(2);
 
     rowY += 10;
     doc.moveTo(50, rowY).lineTo(545, rowY).stroke("#cfd8dc");
     rowY += 15;
 
-    doc.fillColor("#034694").fontSize(11)
-       .text("Total Late Deduction:", 60, rowY).fillColor("#000").text(`₹${totalLateDeduction}`, 195, rowY)
-       .fillColor("#034694").text("Total OT Allowance:", 330, rowY).fillColor("#000").text(`₹${totalOtAllowance}`, 470, rowY);
+    doc
+      .fillColor("#034694")
+      .fontSize(11)
+      .text("Total Late Deduction:", 60, rowY)
+      .fillColor("#000")
+      .text(`₹${totalLateDeduction}`, 195, rowY)
+      .fillColor("#034694")
+      .text("Total OT Allowance:", 330, rowY)
+      .fillColor("#000")
+      .text(`₹${totalOtAllowance}`, 470, rowY);
 
     rowY += 18;
-    doc.fillColor("#1b5e20").fontSize(12).text(`Net Salary Payable: ₹${totalNetSalary}`, 60, rowY);
+    doc
+      .fillColor("#1b5e20")
+      .fontSize(12)
+      .text(`Net Salary Payable: ₹${totalNetSalary}`, 60, rowY);
 
     // Footer
     rowY += 40;
-    doc.font("Helvetica-Oblique").fontSize(9).fillColor("#777")
-       .text("This is a system-generated salary slip. For queries, contact HR at above contact details.", 60, rowY, { width: 480 });
+    doc
+      .font("Helvetica-Oblique")
+      .fontSize(9)
+      .fillColor("#777")
+      .text(
+        "This is a system-generated salary slip. For queries, contact HR at above contact details.",
+        60,
+        rowY,
+        { width: 480 }
+      );
 
     doc.end();
   } catch (error) {

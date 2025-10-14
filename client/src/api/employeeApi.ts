@@ -131,3 +131,13 @@ export async function getDashboardReport(year: number, month: number) {
   );
   return response.data;
 }
+// Apply Leave API Call
+export async function applyLeave(reportId, leaveType, reason) {
+  const res = await fetch("/api/reports/apply-leave", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reportId, leaveType, reason }),
+  });
+  if (!res.ok) throw new Error("Failed to apply leave");
+  return res.json();
+}

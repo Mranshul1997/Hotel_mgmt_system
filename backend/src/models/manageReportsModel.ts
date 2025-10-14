@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document, Types } from 'mongoose';
+import mongoose, { Schema, Document, Types } from "mongoose";
 
 export interface IManageReport extends Document {
   userId: Types.ObjectId;
@@ -12,14 +12,15 @@ export interface IManageReport extends Document {
   netDaySalary: number;
   createdAt: Date;
   updatedAt: Date;
+  executionDate: Date;
   applyLeave?: boolean;
   leaveType?: "paid" | "unpaid";
-  executionDate: Date;
+  leaveReason: string;
 }
 
 const ManageReportSchema = new Schema<IManageReport>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     checkInTime: { type: String },
     checkOutTime: { type: String },
     shiftTiming: { type: String },
@@ -30,11 +31,15 @@ const ManageReportSchema = new Schema<IManageReport>(
     netDaySalary: { type: Number },
     applyLeave: { type: Boolean, default: false },
     leaveType: { type: String, enum: ["paid", "unpaid"], default: null },
-    executionDate: { type: Date }
+    leaveReason: { type: String, default: "" },
+    executionDate: { type: Date, required: true },
   },
   {
-    timestamps: true
+    timestamps: true,
   }
 );
 
-export default mongoose.model<IManageReport>('ManageReport', ManageReportSchema);
+export default mongoose.model<IManageReport>(
+  "ManageReport",
+  ManageReportSchema
+);

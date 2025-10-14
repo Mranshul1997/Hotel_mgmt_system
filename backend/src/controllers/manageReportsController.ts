@@ -16,6 +16,7 @@ export const applyLeave = async (req: Request, res: Response) => {
     const { reportId, leaveType, reason } = req.body;
 
     if (!reportId || !leaveType) {
+      console.log("Missing required fields: reportId or leaveType");
       return res.status(400).json({
         success: false,
         message: "Missing required fields: reportId and leaveType",
@@ -23,17 +24,17 @@ export const applyLeave = async (req: Request, res: Response) => {
     }
 
     const report = await ManageReport.findById(reportId);
+    console.log("Fetched report:", report);
     if (!report) {
-      return res
-        .status(404)
-        .json({ success: false, message: "ManageReport not found" });
+      console.log("ManageReport not found for id:", reportId);
+      return res.status(404).json({ success: false, message: "ManageReport not found" });
     }
 
     const user = await User.findById(report.userId);
+    console.log("Fetched user for report:", user);
     if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found for this report" });
+      console.log("User not found for report userId:", report.userId);
+      return res.status(404).json({ success: false, message: "User not found for this report" });
     }
 
     // Mark leave
@@ -47,6 +48,7 @@ export const applyLeave = async (req: Request, res: Response) => {
     }
 
     await report.save();
+    console.log("Leave applied and report saved:", report);
 
     res.status(200).json({
       success: true,
@@ -61,40 +63,55 @@ export const applyLeave = async (req: Request, res: Response) => {
 
 export const checkInUser = async (req: Request, res: Response) => {
   try {
+    console.log("checkInUser called with body:", req.body);
     const { userId, checkInTime } = req.body;
 
     if (!userId || !checkInTime) {
+      console.log("Missing userId or checkInTime");
       return res
         .status(400)
         .json({ message: "userId and checkInTime are required." });
     }
 
     const user = await User.findById(userId).populate("shiftId");
-    if (!user) return res.status(404).json({ message: "User not found" });
+    console.log("Fetched user:", user);
+    if (!user) {
+      console.log("User not found for userId:", userId);
+      return res.status(404).json({ message: "User not found" });
+    }
 
     const shift = user.shiftId as any;
-    if (!shift) return res.status(404).json({ message: "Shift not assigned" });
+    console.log("Fetched shift:", shift);
+    if (!shift) {
+      console.log("Shift not assigned for user:", userId);
+      return res.status(404).json({ message: "Shift not assigned" });
+    }
 
     // Parse times in IST
     const checkIn = moment.tz(checkInTime, "HH:mm", "Asia/Kolkata");
     const shiftStart = moment
       .tz(shift.checkInTime, "HH:mm", "Asia/Kolkata")
       .add(5, "minutes");
+    console.log("Parsed checkIn:", checkIn.format(), "shiftStart (+5min):", shiftStart.format());
 
     // Calculate late duration
     const lateDuration = checkIn.isAfter(shiftStart)
       ? checkIn.diff(shiftStart, "minutes")
       : 0;
+    console.log("Late duration (minutes):", lateDuration);
 
     // Salary calculation
     const deduction = lateDuration * (user.perMinuteSalary || 0);
     const netDaySalary = (user.perDaySalary || 0) - deduction;
+    console.log("Deduction:", deduction, "Net day salary:", netDaySalary);
 
     // Use today's date in IST
     const executionDate = moment.tz("Asia/Kolkata").startOf("day").toDate();
+    console.log("Execution date (IST):", executionDate);
 
     // Find existing record for today
     let report = await ManageReport.findOne({ userId, executionDate });
+    console.log("Existing report for today:", report);
 
     if (report) {
       // Update existing record
@@ -106,6 +123,7 @@ export const checkInUser = async (req: Request, res: Response) => {
       report.applyLeave = false;
 
       await report.save();
+      console.log("Updated report after check-in:", report);
 
       return res
         .status(200)
@@ -125,51 +143,66 @@ export const checkInUser = async (req: Request, res: Response) => {
         applyLeave: false,
         leaveType: null,
       });
+      console.log("Created new report for check-in:", report);
 
       return res
         .status(201)
         .json({ message: "Check-in recorded successfully", data: report });
     }
   } catch (error: any) {
+    console.error("Error in checkInUser:", error);
     return res.status(500).json({ message: error.message });
   }
 };
 
 export const checkoutUser = async (req: Request, res: Response) => {
   try {
+    console.log("checkoutUser called with body:", req.body);
     const { userId, checkOutTime } = req.body;
     if (!userId || !checkOutTime) {
+      console.log("Missing userId or checkOutTime");
       return res
         .status(400)
         .json({ message: "userId and checkOutTime are required." });
     }
 
     const user = await User.findById(userId).populate("shiftId");
-    if (!user) return res.status(404).json({ message: "User not found" });
+    console.log("Fetched user:", user);
+    if (!user) {
+      console.log("User not found for userId:", userId);
+      return res.status(404).json({ message: "User not found" });
+    }
 
     const shift = user.shiftId as any;
-    if (!shift) return res.status(404).json({ message: "Shift not assigned" });
+    console.log("Fetched shift:", shift);
+    if (!shift) {
+      console.log("Shift not assigned for user:", userId);
+      return res.status(404).json({ message: "Shift not assigned" });
+    }
 
     // Find today's report in IST
     const todayISTStart = moment.tz("Asia/Kolkata").startOf("day").toDate();
     const todayISTEnd = moment.tz("Asia/Kolkata").endOf("day").toDate();
+    console.log("Today's IST range:", todayISTStart, todayISTEnd);
 
     const report = await ManageReport.findOne({
       userId,
       executionDate: { $gte: todayISTStart, $lte: todayISTEnd },
       checkInTime: { $exists: true, $ne: null },
     });
+    console.log("Fetched report for checkout:", report);
 
-    if (!report)
-      return res
-        .status(404)
-        .json({ message: "No existing check-in report found" });
+    if (!report) {
+      console.log("No existing check-in report found for user:", userId);
+      return res.status(404).json({ message: "No existing check-in report found" });
+    }
 
     // OT calculation
     const shiftCheckoutWithBuffer = moment
       .tz(shift.checkOutTime, "HH:mm", "Asia/Kolkata")
       .add(30, "minutes");
     const actualCheckout = moment.tz(checkOutTime, "HH:mm", "Asia/Kolkata");
+    console.log("shiftCheckoutWithBuffer:", shiftCheckoutWithBuffer.format(), "actualCheckout:", actualCheckout.format());
 
     let otDuration = 0;
     let otAmount = 0;
@@ -177,9 +210,10 @@ export const checkoutUser = async (req: Request, res: Response) => {
       otDuration = actualCheckout.diff(shiftCheckoutWithBuffer, "minutes");
       otAmount = otDuration * (user.perMinuteSalary || 0);
     }
+    console.log("OT duration:", otDuration, "OT amount:", otAmount);
 
-    const netDaySalary =
-      (user.perDaySalary || 0) - (report.totalDeductionsAmount || 0) + otAmount;
+    const netDaySalary = (user.perDaySalary || 0) - (report.totalDeductionsAmount || 0) + otAmount;
+    console.log("Net day salary after OT:", netDaySalary);
 
     // Update report
     report.checkOutTime = checkOutTime;
@@ -188,19 +222,23 @@ export const checkoutUser = async (req: Request, res: Response) => {
     report.netDaySalary = netDaySalary;
 
     await report.save();
+    console.log("Updated report after checkout:", report);
 
     return res
       .status(200)
       .json({ message: "Check-out updated successfully", data: report });
   } catch (error: any) {
+    console.error("Error in checkoutUser:", error);
     return res.status(500).json({ message: error.message });
   }
 };
 
 export const getMonthlyReport = async (req: Request, res: Response) => {
   try {
+    console.log("getMonthlyReport called with body:", req.body);
     const { userId, month, year } = req.body;
     if (!userId || !month || !year) {
+      console.log("Missing userId, month or year");
       return res.status(400).json({ message: "userId, month and year are required." });
     }
 
@@ -217,22 +255,15 @@ export const getMonthlyReport = async (req: Request, res: Response) => {
     }
 
     // Month range in IST
-    const start = moment
-      .tz({ year: yearNum, month: monthNum - 1, day: 1 }, "Asia/Kolkata")
-      .startOf("day")
-      .toDate();
-    const end = moment
-      .tz({ year: yearNum, month: monthNum - 1, day: 1 }, "Asia/Kolkata")
-      .endOf("month")
-      .endOf("day")
-      .toDate();
+    const start = moment.tz({ year, month: month - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
+    const end = moment.tz({ year, month: month - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    console.log("Monthly report date range:", start, end);
 
     const records = await ManageReport.find({
       userId: new mongoose.Types.ObjectId(userId),
       executionDate: { $gte: start, $lte: end },
-    })
-      .sort({ executionDate: 1 })
-      .lean();
+    }).sort({ executionDate: 1 }).lean();
+    console.log("Fetched records for monthly report:", records.length);
 
     // Add showApply flag
     const todayIST = moment.tz("Asia/Kolkata").startOf("day");
@@ -273,6 +304,7 @@ export const getMonthlyReport = async (req: Request, res: Response) => {
       totalOtAmount: 0,
       totalNetSalary: 0,
     };
+    console.log("Monthly report totals:", totals);
 
     return res.json({
       userId,
@@ -282,38 +314,25 @@ export const getMonthlyReport = async (req: Request, res: Response) => {
       records: recordsWithFlag,
     });
   } catch (error: any) {
+    console.error("Error in getMonthlyReport:", error);
     return res.status(500).json({ message: error.message });
   }
 };
 export const getDailyReport = async (req: Request, res: Response) => {
   try {
+    console.log("getDailyReport called with body:", req.body);
     const { userId, month, year } = req.body;
     if (!userId || !month || !year) {
-      return res.status(400).json({ message: "userId, month and year are required." });
-    }
-
-    const yearNum = Number(year);
-    const monthNum = Number(month);
-
-    if (
-      isNaN(yearNum) ||
-      isNaN(monthNum) ||
-      monthNum < 1 ||
-      monthNum > 12
-    ) {
-      return res.status(400).json({ message: "Invalid month or year" });
+      console.log("Missing userId, month or year");
+      return res
+        .status(400)
+        .json({ message: "userId, month and year are required." });
     }
 
     // Step 1: Calculate month start and end in IST
-    const start = moment
-      .tz({ year: yearNum, month: monthNum - 1, day: 1 }, "Asia/Kolkata")
-      .startOf("day")
-      .toDate();
-    const end = moment
-      .tz({ year: yearNum, month: monthNum - 1, day: 1 }, "Asia/Kolkata")
-      .endOf("month")
-      .endOf("day")
-      .toDate();
+    const start = moment.tz({ year, month: month - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
+    const end = moment.tz({ year, month: month - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    console.log("Daily report date range:", start, end);
 
     // Step 2: Fetch all daily records
     const dailyRecords = await ManageReport.find({
@@ -322,6 +341,7 @@ export const getDailyReport = async (req: Request, res: Response) => {
     })
       .sort({ executionDate: 1 })
       .lean();
+    console.log("Fetched daily records:", dailyRecords.length);
 
     // Current date in IST
     const todayIST = moment.tz("Asia/Kolkata").startOf("day");
@@ -364,6 +384,7 @@ export const getDailyReport = async (req: Request, res: Response) => {
       totalOtAmount: 0,
       totalNetSalary: 0,
     };
+    console.log("Daily report totals:", totals);
 
     return res.json({
       userId,
@@ -381,20 +402,15 @@ export const getDailyReport = async (req: Request, res: Response) => {
 
 export const getPayrollReport = async (req: Request, res: Response) => {
   try {
+    console.log("getPayrollReport called with params:", req.params);
     const { year, month } = req.params;
     const yearInt = parseInt(year);
     const monthInt = parseInt(month);
 
     // Month range in IST
-    const startDate = moment
-      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
-      .startOf("day")
-      .toDate();
-    const endDate = moment
-      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
-      .endOf("month")
-      .endOf("day")
-      .toDate();
+    const startDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
+    const endDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    console.log("Payroll report date range:", startDate, endDate);
 
     const monthlyReport = await ManageReport.aggregate([
       { $match: { executionDate: { $gte: startDate, $lte: endDate } } },
@@ -445,6 +461,7 @@ export const getPayrollReport = async (req: Request, res: Response) => {
         },
       },
     ]);
+    console.log("Payroll monthlyReport:", monthlyReport);
 
     res.status(200).json(monthlyReport[0] || { users: [], totals: {} });
   } catch (error) {
@@ -455,36 +472,30 @@ export const getPayrollReport = async (req: Request, res: Response) => {
 
 export const dashboardReport = async (req: Request, res: Response) => {
   try {
+    console.log("dashboardReport called with params:", req.params);
     const { year, month } = req.params;
     const yearInt = parseInt(year);
     const monthInt = parseInt(month);
 
-    const startOfMonth = moment
-      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
-      .startOf("day")
-      .toDate();
-    const endOfMonth = moment
-      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
-      .endOf("month")
-      .endOf("day")
-      .toDate();
+    const startOfMonth = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
+    const endOfMonth = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    console.log("Dashboard month range:", startOfMonth, endOfMonth);
 
     const todayStart = moment.tz("Asia/Kolkata").startOf("day").toDate();
     const todayEnd = moment.tz("Asia/Kolkata").endOf("day").toDate();
+    console.log("Dashboard today range:", todayStart, todayEnd);
 
     // Today Summary
     const todaySummaryPromise = (async () => {
       const totalEmployees = await User.countDocuments();
-
       const presentToday = await ManageReport.countDocuments({
         executionDate: { $gte: todayStart, $lte: todayEnd },
       });
-
       const shiftViolations = await ManageReport.countDocuments({
         executionDate: { $gte: todayStart, $lte: todayEnd },
         totalDeductionsAmount: { $gt: 0 },
       });
-
+      console.log("Dashboard todaySummary:", { totalEmployees, presentToday, shiftViolations });
       return { totalEmployees, presentToday, shiftViolations };
     })();
 
@@ -515,13 +526,13 @@ export const dashboardReport = async (req: Request, res: Response) => {
           },
         },
       ]);
+      console.log("Dashboard monthlyStats:", monthlyStats);
       return monthlyStats;
     })();
 
-    const [todaySummary, monthlySummary] = await Promise.all([
-      todaySummaryPromise,
-      monthlySummaryPromise,
-    ]);
+    const [todaySummary, monthlySummary] = await Promise.all([todaySummaryPromise, monthlySummaryPromise]);
+    console.log("Dashboard final todaySummary:", todaySummary);
+    console.log("Dashboard final monthlySummary:", monthlySummary);
 
     res.status(200).json({ todaySummary, monthlySummary });
   } catch (error) {
@@ -532,19 +543,14 @@ export const dashboardReport = async (req: Request, res: Response) => {
 
 export const exportPayrollCsv = async (req: Request, res: Response) => {
   try {
+    console.log("exportPayrollCsv called with params:", req.params);
     const { year, month } = req.params;
     const yearInt = parseInt(year);
     const monthInt = parseInt(month);
 
-    const startDate = moment
-      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
-      .startOf("day")
-      .toDate();
-    const endDate = moment
-      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
-      .endOf("month")
-      .endOf("day")
-      .toDate();
+    const startDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
+    const endDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    console.log("CSV export date range:", startDate, endDate);
 
     const monthlyReport = await ManageReport.aggregate([
       { $match: { executionDate: { $gte: startDate, $lte: endDate } } },
@@ -577,6 +583,7 @@ export const exportPayrollCsv = async (req: Request, res: Response) => {
         },
       },
     ]);
+    console.log("CSV monthlyReport:", monthlyReport);
 
     const fields = [
       { label: "Employee ID", value: "userId" },
@@ -601,19 +608,14 @@ export const exportPayrollCsv = async (req: Request, res: Response) => {
 
 export const exportUserPayrollCsv = async (req: Request, res: Response) => {
   try {
+    console.log("exportUserPayrollCsv called with params:", req.params);
     const { year, month, userId } = req.params;
     const yearInt = parseInt(year);
     const monthInt = parseInt(month);
 
-    const startDate = moment
-      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
-      .startOf("day")
-      .toDate();
-    const endDate = moment
-      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
-      .endOf("month")
-      .endOf("day")
-      .toDate();
+    const startDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
+    const endDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    console.log("User CSV export date range:", startDate, endDate);
 
     const reports = await ManageReport.find({
       userId: new mongoose.Types.ObjectId(userId),
@@ -623,6 +625,7 @@ export const exportUserPayrollCsv = async (req: Request, res: Response) => {
         "-_id checkInTime checkOutTime lateDuration otDuration totalDeductionsAmount totalOtAmount netDaySalary executionDate"
       )
       .lean();
+    console.log("Fetched user payroll reports:", reports.length);
 
     const fields = [
       {
@@ -653,19 +656,14 @@ export const exportUserPayrollCsv = async (req: Request, res: Response) => {
 
 export const exportPayrollPdf = async (req: Request, res: Response) => {
   try {
+    console.log("exportPayrollPdf called with params:", req.params);
     const { year, month } = req.params;
     const yearInt = parseInt(year);
     const monthInt = parseInt(month);
 
-    const startDate = moment
-      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
-      .startOf("day")
-      .toDate();
-    const endDate = moment
-      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
-      .endOf("month")
-      .endOf("day")
-      .toDate();
+    const startDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
+    const endDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    console.log("PDF export date range:", startDate, endDate);
 
     const monthlyReport = await ManageReport.aggregate([
       { $match: { executionDate: { $gte: startDate, $lte: endDate } } },
@@ -698,6 +696,7 @@ export const exportPayrollPdf = async (req: Request, res: Response) => {
         },
       },
     ]);
+    console.log("PDF monthlyReport:", monthlyReport);
 
     const doc = new PDFDocument({ margin: 30, size: "A4" });
     res.setHeader("Content-Type", "application/pdf");
@@ -738,27 +737,24 @@ export const exportPayrollPdf = async (req: Request, res: Response) => {
 
 export const exportUserPayrollPdf = async (req: Request, res: Response) => {
   try {
+    console.log("exportUserPayrollPdf called with params:", req.params);
     const { year, month, userId } = req.params;
     const yearInt = parseInt(year);
     const monthInt = parseInt(month);
 
     // IST-aware date range
-    const startDate = moment
-      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
-      .startOf("day")
-      .toDate();
-    const endDate = moment
-      .tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata")
-      .endOf("month")
-      .endOf("day")
-      .toDate();
+    const startDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").startOf("day").toDate();
+    const endDate = moment.tz({ year: yearInt, month: monthInt - 1, day: 1 }, "Asia/Kolkata").endOf("month").endOf("day").toDate();
+    console.log("User PDF export date range:", startDate, endDate);
 
     const reports = await ManageReport.find({
       userId: new mongoose.Types.ObjectId(userId),
       createdAt: { $gte: startDate, $lte: endDate },
     }).lean();
+    console.log("Fetched user payroll PDF reports:", reports.length);
 
     const user = await User.findById(userId);
+    console.log("Fetched user for payroll PDF:", user);
 
     const doc = new PDFDocument({ size: "A4", margin: 40 });
     const assetsDir = path.resolve(__dirname, "../../assets");

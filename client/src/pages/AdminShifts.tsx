@@ -6,6 +6,7 @@ import {
   deleteShift,
   ShiftType,
 } from "../api/shiftApi";
+import { Edit, Trash2 } from "lucide-react";
 
 const emptyForm: Omit<ShiftType, "_id" | "createdAt" | "updatedAt"> = {
   name: "",
@@ -32,6 +33,8 @@ const AdminShifts = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [shiftToDelete, setshiftToDelete] = useState<any>(null);
 
   const fetchShifts = async () => {
     try {
@@ -94,7 +97,6 @@ const AdminShifts = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Delete this shift?")) return;
     try {
       await deleteShift(id);
       fetchShifts();
@@ -131,18 +133,23 @@ const AdminShifts = () => {
                   <td className="p-3">{shift.name}</td>
                   <td className="p-3">{formatTime24(shift.checkInTime)}</td>
                   <td className="p-3">{formatTime24(shift.checkOutTime)}</td>
-                  <td className="p-3 flex gap-2">
+                  <td className="p-3 flex gap-3 items-center">
                     <button
-                      className="text-xs text-blue-400 underline"
+                      className="text-blue-400 hover:text-blue-600 transition"
+                      aria-label="Edit employee"
                       onClick={() => handleShowEdit(shift)}
                     >
-                      Edit
+                      <Edit size={18} />
                     </button>
                     <button
-                      className="text-xs text-red-400 underline"
-                      onClick={() => handleDelete(shift._id!)}
+                      aria-label="Delete employee"
+                      className="text-red-400 hover:text-red-600 transition"
+                      onClick={() => {
+                        setshiftToDelete(shift._id);
+                        setShowDeleteModal(true);
+                      }}
                     >
-                      Delete
+                      <Trash2 size={18} />
                     </button>
                   </td>
                 </tr>
@@ -223,6 +230,35 @@ const AdminShifts = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {showDeleteModal && shiftToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gray-800 rounded-lg shadow-lg p-6 max-w-sm w-full text-white">
+            <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
+            <p className="mb-6">
+              Are you sure you want to delete
+              <span className="font-bold">{shiftToDelete.name}</span> shift?
+            </p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 bg-gray-600 rounded hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  handleDelete(shiftToDelete); // Call your delete handler
+                  setShowDeleteModal(false);
+                  setshiftToDelete(null);
+                }}
+                className="px-4 py-2 bg-red-600 rounded hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

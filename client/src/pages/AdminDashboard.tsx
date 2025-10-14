@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { getDashboardReport } from "../api/employeeApi";
+import { Fingerprint, Users, Clock, DollarSign } from "lucide-react";
 import {
-  Fingerprint, Users, Clock, DollarSign
-} from "lucide-react";
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
 } from "recharts";
 
 const DashboardOverview = () => {
@@ -12,10 +17,24 @@ const DashboardOverview = () => {
     { label: "Total Employees", value: 0, color: "#60a5fa", icon: <Users /> },
     { label: "Present Today", value: 0, color: "#10b981", icon: <Fingerprint /> },
     { label: "On Leave", value: 0, color: "#facc15", icon: <Clock /> },
-    { label: "Shift Violations", value: 0, color: "#a78bfa", icon: <DollarSign /> }
+    { label: "Shift Violations", value: 0, color: "#a78bfa", icon: <DollarSign /> },
   ]);
   const [attendanceTrend, setAttendanceTrend] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Get user role from localStorage or your auth provider
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const userObj = JSON.parse(storedUser);
+        setUserRole(userObj.role || null);
+      } catch {
+        setUserRole(null);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -25,44 +44,54 @@ const DashboardOverview = () => {
       const month = now.getMonth() + 1;
       try {
         const res = await getDashboardReport(year, month);
-        // Set stat cards
-        setStats([
+        console.log(res,"logoogogogogo")
+
+        // Prepare stats array with Total Savings if user is admin
+        const baseStats = [
           {
             label: "Total Employees",
             value: res.todaySummary?.totalEmployees ?? 0,
             color: "#60a5fa",
-            icon: <Users />
+            icon: <Users />,
           },
           {
             label: "Present Today",
             value: res.todaySummary?.presentToday ?? 0,
             color: "#10b981",
-            icon: <Fingerprint />
+            icon: <Fingerprint />,
           },
           {
             label: "On Leave",
             value:
-              (res.todaySummary?.totalEmployees ?? 0) -
-              (res.todaySummary?.presentToday ?? 0),
+              (res.todaySummary?.totalEmployees ?? 0) - (res.todaySummary?.presentToday ?? 0),
             color: "#facc15",
-            icon: <Clock />
+            icon: <Clock />,
           },
           {
             label: "Shift Violations",
             value: res.todaySummary?.shiftViolations ?? 0,
             color: "#a78bfa",
-            icon: <DollarSign />
-          }
-        ]);
-        // Prepare attendance/OT trend for chart
+            icon: <DollarSign />,
+          },
+        ];
+
+        if (userRole === "admin") {
+          baseStats.push({
+            label: "Total Savings",
+            value: res.todaySummary?.totalSavings ?? 0,
+            color: "#22c55e", // greenish
+            icon: <DollarSign />,
+          });
+        }
+
+        setStats(baseStats);
+
         setAttendanceTrend(
           (res.monthlySummary || []).map((d) => ({
             date: `Day ${d.day}`,
             present: d.presentCount,
-            leave:
-              ((res.todaySummary?.totalEmployees ?? 0) -
-                d.presentCount) || 0,
-            ot: d.overtimeCount
+            leave: ((res.todaySummary?.totalEmployees ?? 0) - d.presentCount) || 0,
+            ot: d.overtimeCount,
           }))
         );
       } catch {
@@ -70,14 +99,16 @@ const DashboardOverview = () => {
           { label: "Total Employees", value: 0, color: "#60a5fa", icon: <Users /> },
           { label: "Present Today", value: 0, color: "#10b981", icon: <Fingerprint /> },
           { label: "On Leave", value: 0, color: "#facc15", icon: <Clock /> },
-          { label: "Shift Violations", value: 0, color: "#a78bfa", icon: <DollarSign /> }
+          { label: "Shift Violations", value: 0, color: "#a78bfa", icon: <DollarSign /> },
         ]);
         setAttendanceTrend([]);
       }
       setLoading(false);
     }
-    loadData();
-  }, []);
+    if (userRole) {
+      loadData();
+    }
+  }, [userRole]);
 
   return (
     <div>
@@ -92,10 +123,7 @@ const DashboardOverview = () => {
             <div className="mb-2 text-xl" style={{ color: stat.color }}>
               {stat.icon}
             </div>
-            <div
-              className="text-4xl font-extrabold"
-              style={{ color: stat.color }}
-            >
+            <div className="text-4xl font-extrabold" style={{ color: stat.color }}>
               {stat.value}
             </div>
             <div className="text-md text-gray-300 mt-2">{stat.label}</div>

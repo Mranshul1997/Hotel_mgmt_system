@@ -86,12 +86,7 @@ const DashboardOverview = () => {
             color: "#a78bfa",
             icon: <DollarSign />,
           },
-          {
-            label: "Total Savings",
-            value: totalDeductions, // Show the Redux store value here
-            color: "#22c55e",
-            icon: <DollarSign />,
-          },
+         
         ];
 
         setStats(baseStats);
@@ -126,12 +121,7 @@ const DashboardOverview = () => {
             color: "#a78bfa",
             icon: <DollarSign />,
           },
-          {
-            label: "Total Savings",
-            value: totalDeductions,
-            color: "#22c55e",
-            icon: <DollarSign />,
-          },
+         
         ]);
         setAttendanceTrend([]);
       }

@@ -5,18 +5,8 @@ import { useDispatch } from "react-redux";
 import { setTotalDeductions } from "../store/payrollSlice";
 
 const months = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
 
 const currentYear = new Date().getFullYear();
@@ -31,35 +21,30 @@ const AdminPayroll = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const recordsPerPage = 8; // Number of records per page
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const recordsPerPage = 8;
 
-  useEffect(() => {
-    const fetchPayroll = async () => {
-      setLoading(true);
-      try {
-        const res = await getPayrollReport(year, month);
-        if (res && Array.isArray(res.users)) {
-          setData(res.users);
-        } else {
-          setData([]);
-        }
-      } catch {
-        setData([]);
-      }
-      setLoading(false);
-    };
-    fetchPayroll();
-  }, [month, year]);
   const dispatch = useDispatch();
 
   useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const userObj = JSON.parse(storedUser);
+        setUserRole(userObj.role || null);
+      } catch {
+        setUserRole(null);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     const fetchPayroll = async () => {
       setLoading(true);
       try {
         const res = await getPayrollReport(year, month);
         if (res && Array.isArray(res.users)) {
           setData(res.users);
-          // Calculate and dispatch total deductions
           const totalDeductions = res.users.reduce(
             (sum, rec) => sum + (rec.deductionAmount ?? 0),
             0
@@ -77,23 +62,6 @@ const AdminPayroll = () => {
     };
     fetchPayroll();
   }, [month, year, dispatch]);
-
-  // Download CSV handler
-  const handleDownloadCsv = async () => {
-    const blob = await downloadPayrollCsv(year, month);
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `payroll_${year}_${month}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  // Show individual employee report
-  const handleViewReport = (emp: any) => {
-    setSelectedEmployee(emp);
-    setShowReport(true);
-  };
 
   // Summaries from users array
   const totalNetSalary = data.reduce(
@@ -132,7 +100,7 @@ const AdminPayroll = () => {
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
-                setCurrentPage(1); // reset page on search change
+                setCurrentPage(1);
               }}
             />
           </div>
@@ -161,7 +129,15 @@ const AdminPayroll = () => {
           </select>
           <button
             className="bg-primary text-white font-semibold px-4 py-2 rounded-lg shadow"
-            onClick={handleDownloadCsv}
+            onClick={async () => {
+              const blob = await downloadPayrollCsv(year, month);
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `payroll_${year}_${month}.csv`;
+              a.click();
+              window.URL.revokeObjectURL(url);
+            }}
             disabled={loading}
           >
             Download CSV
@@ -176,7 +152,9 @@ const AdminPayroll = () => {
               <th className="p-3">Name</th>
               <th className="p-3">Role</th>
               <th className="p-3">Base Salary (₹)</th>
-              <th className="p-3">Late Deduction (₹)</th>
+              {userRole === "admin" && (
+                <th className="p-3">Late Deduction (₹)</th>
+              )}
               <th className="p-3">OT (₹)</th>
               <th className="p-3">Net Salary (₹)</th>
               <th className="p-3">View Report</th>
@@ -185,13 +163,19 @@ const AdminPayroll = () => {
           <tbody className="divide-y divide-gray-700">
             {loading ? (
               <tr>
-                <td colSpan={8} className="text-center p-4 text-gray-400">
+                <td
+                  colSpan={userRole === "admin" ? 8 : 7}
+                  className="text-center p-4 text-gray-400"
+                >
                   Loading...
                 </td>
               </tr>
             ) : filteredData.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center p-4 text-gray-400">
+                <td
+                  colSpan={userRole === "admin" ? 8 : 7}
+                  className="text-center p-4 text-gray-400"
+                >
                   No data found
                 </td>
               </tr>
@@ -207,12 +191,14 @@ const AdminPayroll = () => {
                   <td className="p-3">{rec.name}</td>
                   <td className="p-3">{rec.role}</td>
                   <td className="p-3">{rec.salary}</td>
-                  <td className="p-3">
-                    {Number(rec.deductionAmount).toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </td>
+                  {userRole === "admin" && (
+                    <td className="p-3">
+                      {Number(rec.deductionAmount).toLocaleString("en-IN", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </td>
+                  )}
                   <td className="p-3">
                     {Number(rec.oTAmount).toLocaleString("en-IN", {
                       minimumFractionDigits: 2,
@@ -228,7 +214,7 @@ const AdminPayroll = () => {
                   <td className="p-3">
                     <button
                       className="text-xs text-green-400 underline"
-                      onClick={() => handleViewReport(rec)}
+                      onClick={() => setShowReport(true) || setSelectedEmployee(rec)}
                     >
                       View Report
                     </button>
@@ -273,7 +259,8 @@ const AdminPayroll = () => {
           </div>
         )}
       </div>
-      {/* Payroll summary cards */}
+
+      {/* Summary cards */}
       <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-gray-800 p-6 rounded-xl border border-blue-700/50 shadow">
           <p className="text-sm text-gray-200">Total Net Payroll</p>
@@ -285,6 +272,7 @@ const AdminPayroll = () => {
             })}
           </p>
         </div>
+
         <div className="bg-gray-800 p-6 rounded-xl border border-yellow-700/50 shadow">
           <p className="text-sm text-gray-200">Total OT Paid</p>
           <p className="text-3xl font-bold text-yellow-400 mt-2">
@@ -295,17 +283,21 @@ const AdminPayroll = () => {
             })}
           </p>
         </div>
-        <div className="bg-gray-800 p-6 rounded-xl border border-red-600/50 shadow">
-          <p className="text-sm text-gray-200">Total Deductions</p>
-          <p className="text-3xl font-bold text-red-400 mt-2">
-            ₹
-            {Number(totalDeductions).toLocaleString("en-IN", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </p>
-        </div>
+
+        {userRole === "admin" && (
+          <div className="bg-gray-800 p-6 rounded-xl border border-red-600/50 shadow">
+            <p className="text-sm text-gray-200">Total Deductions</p>
+            <p className="text-3xl font-bold text-red-400 mt-2">
+              ₹
+              {Number(totalDeductions).toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </p>
+          </div>
+        )}
       </div>
+
       {showReport && selectedEmployee && (
         <EmployeeReport
           employee={selectedEmployee}

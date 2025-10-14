@@ -8,7 +8,6 @@ import path from "path";
 import fs from "fs";
 const PDFDocument = require("pdfkit");
 
-
 /**
  * Apply Leave API
  */
@@ -74,35 +73,59 @@ export const checkInUser = async (req: Request, res: Response) => {
 
     // Parse times in IST
     const checkIn = moment.tz(checkInTime, "HH:mm", "Asia/Kolkata");
-    const shiftStart = moment.tz(shift.checkInTime, "HH:mm", "Asia/Kolkata").add(5, "minutes");
+    const shiftStart = moment
+      .tz(shift.checkInTime, "HH:mm", "Asia/Kolkata")
+      .add(5, "minutes");
 
-    // Late duration
-    const lateDuration = checkIn.isAfter(shiftStart) ? checkIn.diff(shiftStart, "minutes") : 0;
+    // Calculate late duration
+    const lateDuration = checkIn.isAfter(shiftStart)
+      ? checkIn.diff(shiftStart, "minutes")
+      : 0;
 
-    // Deduction
+    // Salary calculation
     const deduction = lateDuration * (user.perMinuteSalary || 0);
-
-    // Net day salary
     const netDaySalary = (user.perDaySalary || 0) - deduction;
 
-    // Save report (for today in IST)
+    // Use today's date in IST
     const executionDate = moment.tz("Asia/Kolkata").startOf("day").toDate();
 
-    const report = await ManageReport.create({
-      userId: user._id,
-      checkInTime,
-      shiftTiming: `${shift.checkInTime} - ${shift.checkOutTime}`,
-      totalDeductionsAmount: deduction,
-      totalOtAmount: 0,
-      lateDuration,
-      otDuration: 0,
-      netDaySalary,
-      executionDate,
-      applyLeave: false,
-      leaveType: null,
-    });
+    // Find existing record for today
+    let report = await ManageReport.findOne({ userId, executionDate });
 
-    return res.status(201).json({ message: "Check-in recorded", data: report });
+    if (report) {
+      // Update existing record
+      report.checkInTime = checkInTime;
+      report.shiftTiming = `${shift.checkInTime} - ${shift.checkOutTime}`;
+      report.totalDeductionsAmount = deduction;
+      report.lateDuration = lateDuration;
+      report.netDaySalary = netDaySalary;
+      report.applyLeave = false;
+
+      await report.save();
+
+      return res
+        .status(200)
+        .json({ message: "Check-in updated successfully", data: report });
+    } else {
+      // Create new record
+      report = await ManageReport.create({
+        userId: user._id,
+        checkInTime,
+        shiftTiming: `${shift.checkInTime} - ${shift.checkOutTime}`,
+        totalDeductionsAmount: deduction,
+        totalOtAmount: 0,
+        lateDuration,
+        otDuration: 0,
+        netDaySalary,
+        executionDate,
+        applyLeave: false,
+        leaveType: null,
+      });
+
+      return res
+        .status(201)
+        .json({ message: "Check-in recorded successfully", data: report });
+    }
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }

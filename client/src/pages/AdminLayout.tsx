@@ -88,7 +88,7 @@ const AdminLayout = () => {
             className="text-xl font-bold text-white tracking-wide cursor-pointer"
             onClick={redirect}
           >
-            {getTitle()}
+            BiometriQ
           </span>
         </div>
         {/* Sidebar tabs */}

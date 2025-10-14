@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Fingerprint,
@@ -29,8 +29,22 @@ const AdminLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const [userRole, setUserRole] = useState<string | null>(null);
+
   // Parse current path for active tab
   const pathKey = location.pathname.split("/")[2] || "";
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const userObj = JSON.parse(storedUser);
+        setUserRole(userObj.role || null);
+      } catch {
+        setUserRole(null);
+      }
+    }
+  }, []);
 
   const handleTabClick = (key: string) => {
     navigate(key === "" ? "/admin-dashboard" : `/admin-dashboard/${key}`);
@@ -52,6 +66,14 @@ const AdminLayout = () => {
   const redirect = () => {
     navigate("/admin-dashboard");
   };
+
+  // Generate title dynamically based on role
+  const getTitle = () => {
+    if (userRole === "admin") return "BiometriQ Admin";
+    if (userRole === "subadmin") return "BiometriQ Subadmin";
+    return "BiometriQ";
+  };
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar with logo at top */}
@@ -66,7 +88,7 @@ const AdminLayout = () => {
             className="text-xl font-bold text-white tracking-wide cursor-pointer"
             onClick={redirect}
           >
-            BiometriQ
+            {getTitle()}
           </span>
         </div>
         {/* Sidebar tabs */}
@@ -93,9 +115,8 @@ const AdminLayout = () => {
       <div className="flex-1 ml-64 flex flex-col">
         <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-20 p-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            {/* Optional: remove duplicate logo from here */}
             <h1 className="text-2xl font-bold text-foreground min-w-full">
-              BiometriQ Admin
+              {getTitle()}
             </h1>
           </div>
           <Button

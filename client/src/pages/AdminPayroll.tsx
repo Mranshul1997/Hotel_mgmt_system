@@ -75,7 +75,7 @@ const AdminPayroll = () => {
   );
 
   const filteredData = data.filter((emp) =>
-    emp.name.toLowerCase().includes(searchTerm.toLowerCase())
+    emp?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalPages = Math.ceil(filteredData.length / recordsPerPage);

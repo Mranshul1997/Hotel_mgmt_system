@@ -11,9 +11,10 @@ import { Edit, Trash2 } from "lucide-react";
 
 const roles = [
   "M.D. SIR",
-  "MANEGER",
+  "MANAGER",
   "FRONT OFFICE",
-  "CHEFF",
+  "Reception",
+  "CHEF",
   "MAINTENANCE",
   "ROOM SERVICE",
   "HOUSE KEEPING",
@@ -76,7 +77,7 @@ const AdminEmployees = () => {
 
   // Open Add modal
   const handleShowAdd = () => {
-    setForm({ ...emptyForm, shift: shifts[0]?.name || "" });
+    setForm({ ...emptyForm, shift: shifts[0]?._id || "" });
     setIsEdit(false);
     setShowModal(true);
   };
@@ -88,7 +89,7 @@ const AdminEmployees = () => {
       email: emp.email,
       age: emp.age,
       role: emp.role,
-      shift: emp.shift?.name || emp.shift,
+      shift: emp.shiftId || emp.shift || "",
       biometric: emp.biometric,
       attendance: emp.attendance,
       salary: emp.salary,
@@ -103,10 +104,10 @@ const AdminEmployees = () => {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    setForm({
-      ...form,
+    setForm((prevForm) => ({
+      ...prevForm,
       [e.target.name]: e.target.value,
-    });
+    }));
   };
 
   // Add Employee submit
@@ -138,7 +139,10 @@ const AdminEmployees = () => {
       await updateEmployee(selectedEmployee._id, {
         ...form,
         salary: Number(form.salary),
+        shiftId: form.shift,
+        shift: shifts.find((s) => s._id === form.shift)?.name || "",
       });
+
       setShowModal(false);
       setForm(emptyForm);
       setIsEdit(false);
@@ -191,7 +195,7 @@ const AdminEmployees = () => {
                 <td className="p-3">{emp.name}</td>
                 <td className="p-3">{emp.email}</td>
                 <td className="p-3">{emp.role}</td>
-                <td className="p-3">{emp.shift?.name || emp.shift}</td>
+                <td className="p-3">{emp.shift}</td>
                 <td className="p-3">{emp.biometric}</td>
                 <td className="p-3">{emp.salary}</td>
                 <td className="p-3 flex gap-3 items-center">
@@ -341,20 +345,20 @@ const AdminEmployees = () => {
                 </select>
               </div>
               {/* 
-              <div>
-                <label className="block text-sm text-gray-200 mb-2">
-                  Attendance (%)
-                </label>
-                <input
-                  className="w-full p-2 rounded bg-input border-border text-white"
-                  type="text"
-                  name="attendance"
-                  value={form.attendance}
-                  onChange={handleChange}
-                  disabled={loading}
-                />
-              </div>
-              */}
+                <div>
+                  <label className="block text-sm text-gray-200 mb-2">
+                    Attendance (%)
+                  </label>
+                  <input
+                    className="w-full p-2 rounded bg-input border-border text-white"
+                    type="text"
+                    name="attendance"
+                    value={form.attendance}
+                    onChange={handleChange}
+                    disabled={loading}
+                  />
+                </div>
+                */}
               <div>
                 <label className="block text-sm text-gray-200 mb-2">
                   Salary (₹ per month)

@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import User from "../models/userModel";
 import moment from "moment";
 import ManageReport from "../models/manageReportsModel";
-import Shift from '../models/shiftModel';
+import Shift from "../models/shiftModel";
 
 // Create new user
 export const createUser = async (req: Request, res: Response) => {
@@ -44,9 +44,9 @@ export const createUser = async (req: Request, res: Response) => {
     let shiftTiming = "";
     if (savedUser.shiftId) {
       const shift = await Shift.findById(savedUser.shiftId).lean();
-      console.log("Fetched shift for user:", shift);
-      if (shift && shift.checkInTime && shift.checkOutTime) {
-        shiftTiming = `${shift.checkInTime} - ${shift.checkOutTime}`;
+      if (shift) {
+        savedUser.shift = shift.name;
+        await savedUser.save();
       }
     }
 
@@ -117,17 +117,23 @@ export const updateUser = async (req: Request, res: Response) => {
     if (updatedData.salary) {
       updatedData.perDaySalary = updatedData.salary / 30;
       updatedData.perMinuteSalary = updatedData.perDaySalary / (8 * 60);
-      console.log("Calculated perDaySalary and perMinuteSalary:", updatedData.perDaySalary, updatedData.perMinuteSalary);
+      console.log(
+        "Calculated perDaySalary and perMinuteSalary:",
+        updatedData.perDaySalary,
+        updatedData.perMinuteSalary
+      );
     }
 
     const updated = await User.findByIdAndUpdate(id, updatedData, {
       new: true,
     });
-    console.log("Updated user:", updated);
 
-    if (!updated) {
-      console.log("User not found for update:", id);
-      return res.status(404).json({ message: "User not found" });
+    if (updated && updated.shiftId) {
+      const shift = await Shift.findById(updated.shiftId).lean();
+      if (shift) {
+        updated.shift = shift.name;
+        await updated.save();
+      }
     }
 
     res.json(updated);

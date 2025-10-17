@@ -22,9 +22,8 @@ const AdminPayroll = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const recordsPerPage = 8;
-
   const dispatch = useDispatch();
+  const recordsPerPage = 8;
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -63,7 +62,6 @@ const AdminPayroll = () => {
     fetchPayroll();
   }, [month, year, dispatch]);
 
-  // Summaries from users array
   const totalNetSalary = data.reduce(
     (sum, rec) => sum + (rec.netSalary || 0),
     0
@@ -214,7 +212,10 @@ const AdminPayroll = () => {
                   <td className="p-3">
                     <button
                       className="text-xs text-green-400 underline"
-                      onClick={() => setShowReport(true) || setSelectedEmployee(rec)}
+                      onClick={() => {
+                        setShowReport(true);
+                        setSelectedEmployee(rec);
+                      }}
                     >
                       View Report
                     </button>

@@ -32,18 +32,27 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Welcome />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reset-password/:token"
+            element={<ResetPasswordPage />}
+          />
           {/* --- Admin Routes --- */}
-          <Route path="/admin-dashboard" element={
-            <ProtectedRoute>
-              <AdminLayout />
-            </ProtectedRoute>
-          }>
+          <Route
+            path="/admin-dashboard"
+            element={
+              <ProtectedRoute>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route index element={<AdminDashboard />} />
             <Route path="home" element={<AdminDashboard />} />
             <Route path="employees" element={<AdminEmployees />} />
@@ -51,6 +60,7 @@ const App = () => (
             <Route path="payroll" element={<AdminPayroll />} />
             <Route path="biometric" element={<AdminBiometric />} />
             <Route path="payrollrules" element={<AdminPayrollRules />} />
+
             {/* If you want admin settings: */}
             {/* <Route path="settings" element={<AdminSettings />} /> */}
           </Route>
